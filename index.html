@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel do Polo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#171B26; --panel:#1F2433; --panel-alt:#262C3F; --border:#333B52;
+    --text:#ECE9E1; --text-muted:#9098AF;
+    --gold:#D6A756; --teal:#4FA98C; --red:#C1666B;
+    --tag-b2b:#6C8EBF; --tag-b2c:#B48EAD;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;}
+  h1,h2,h3{font-family:'Fraunces',serif;font-weight:500;margin:0;}
+
+  #auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+  .auth-box{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:32px;width:100%;max-width:360px;}
+  .auth-box h1{font-size:22px;margin-bottom:6px;}
+  .auth-box p.sub{color:var(--text-muted);font-size:13px;margin-bottom:22px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px;}
+  .field input,.field select,.field textarea{width:100%;background:var(--panel-alt);border:1px solid var(--border);color:var(--text);padding:9px 11px;border-radius:7px;font-family:'Inter';font-size:13.5px;}
+  .field textarea{resize:vertical;min-height:55px;}
+  .btn-primary{background:var(--gold);color:#1B1B14;border:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:13.5px;cursor:pointer;width:100%;}
+  .btn-secondary{background:none;border:1px solid var(--border);color:var(--text-muted);padding:10px 16px;border-radius:8px;font-size:13.5px;cursor:pointer;}
+  .link-btn{background:none;border:none;color:var(--gold);font-size:12.5px;cursor:pointer;text-decoration:underline;margin-top:14px;display:block;text-align:center;width:100%;}
+  #auth-error{color:var(--red);font-size:12.5px;margin-top:10px;min-height:16px;}
+  #config-warning{background:rgba(193,102,107,0.12);border:1px solid var(--red);color:var(--red);padding:14px;border-radius:10px;font-size:12.5px;max-width:420px;margin:20px auto;text-align:center;}
+
+  #app{display:none;}
+  .polobar{display:flex;align-items:center;gap:10px;padding:12px 28px;border-bottom:1px solid var(--border);background:var(--panel-alt);flex-wrap:wrap;}
+  .polobar label{font-size:11.5px;color:var(--text-muted);}
+  #select-polo{background:var(--panel);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:7px;font-size:13px;font-weight:600;}
+  .small-btn{background:none;border:1px solid var(--border);color:var(--text-muted);padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;}
+  .spacer{flex:1;}
+  #user-email{font-size:12px;color:var(--text-muted);}
+
+  .topbar{display:flex;align-items:center;gap:16px;padding:16px 28px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .maintabs{display:flex;gap:4px;}
+  .maintabs button{background:var(--panel);border:1px solid var(--border);color:var(--text-muted);padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+  .maintabs button.active{background:var(--gold);color:#1B1B14;border-color:var(--gold);}
+  .tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:3px;}
+  .tabs button{background:none;border:none;color:var(--text-muted);padding:7px 14px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;}
+  .tabs button.active{background:var(--panel-alt);color:var(--text);}
+  #search{background:var(--panel);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;min-width:170px;}
+  #btn-whatsapp{background:var(--teal);color:#0F1B17;border:none;padding:9px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;}
+  #btn-new-lead, #btn-new-evento{background:var(--gold);color:#1B1B14;border:none;padding:9px 18px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;}
+
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;padding:20px 28px;}
+  .metric{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+  .metric .value{font-family:'Fraunces',serif;font-size:28px;font-weight:500;}
+  .metric .label{color:var(--text-muted);font-size:12.5px;margin-top:4px;}
+  .metric.warn .value{color:var(--red);}
+
+  .board{display:flex;gap:14px;padding:6px 28px 28px 28px;overflow-x:auto;align-items:flex-start;}
+  .column{background:var(--panel);border:1px solid var(--border);border-radius:12px;min-width:240px;max-width:240px;flex-shrink:0;display:flex;flex-direction:column;max-height:calc(100vh - 320px);}
+  .column.dragover{border-color:var(--gold);}
+  .column-header{padding:12px 14px 8px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;}
+  .column-header h3{font-size:13.5px;}
+  .column-header span{color:var(--text-muted);font-size:12px;}
+  .column-body{padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;flex:1;}
+  .column-body:empty::after{content:"Sem leads aqui";color:var(--text-muted);font-size:12px;text-align:center;padding:16px 4px;display:block;}
+
+  .card{background:var(--panel-alt);border:1px solid var(--border);border-radius:9px;padding:11px 12px;cursor:grab;}
+  .card:hover{border-color:var(--gold);}
+  .card.dragging{opacity:0.4;}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;}
+  .card-name{font-size:13px;font-weight:600;}
+  .tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;white-space:nowrap;}
+  .tag.b2b{background:rgba(108,142,191,0.18);color:var(--tag-b2b);}
+  .tag.b2c{background:rgba(180,142,173,0.18);color:var(--tag-b2c);}
+  .card-value{color:var(--text-muted);font-size:12px;margin-top:5px;}
+  .card-followup{font-size:11.5px;margin-top:7px;color:var(--text-muted);}
+  .card-followup.overdue{color:var(--red);font-weight:600;}
+  .card-followup.today{color:var(--gold);font-weight:600;}
+
+  .agenda-list{padding:10px 28px 28px 28px;display:flex;flex-direction:column;gap:10px;max-width:700px;}
+  .ev-card{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--tag-b2b);border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+  .ev-card.prova{border-left-color:var(--red);}
+  .ev-card.aula{border-left-color:var(--tag-b2b);}
+  .ev-card.sala{border-left-color:var(--teal);}
+  .ev-card:hover{border-color:var(--gold);}
+  .ev-info .ev-titulo{font-size:14px;font-weight:600;}
+  .ev-info .ev-meta{font-size:12px;color:var(--text-muted);margin-top:3px;}
+  .ev-progress{font-size:11.5px;color:var(--teal);white-space:nowrap;margin-left:12px;}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(10,12,18,0.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal-overlay[hidden]{display:none;}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:14px;width:100%;max-width:440px;padding:26px;max-height:88vh;overflow-y:auto;}
+  .modal h2{font-size:19px;margin-bottom:14px;}
+  .modal p.hint{color:var(--text-muted);font-size:12.5px;margin:-6px 0 16px 0;}
+  .field-row{display:flex;gap:10px;}
+  .field-row .field{flex:1;}
+  .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:10px;}
+  .btn-danger{background:none;border:none;color:var(--red);font-size:12.5px;cursor:pointer;text-decoration:underline;}
+  .checklist{border-top:1px solid var(--border);margin-top:16px;padding-top:14px;}
+  .checklist h3{font-size:13px;color:var(--text-muted);margin-bottom:10px;font-family:'Inter';font-weight:600;}
+  .check-item{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px;}
+  .check-item input{width:auto;}
+  .check-item.done label{color:var(--text-muted);text-decoration:line-through;}
+  .gestor-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .gestor-row button{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;}
+</style>
+</head>
+<body>
+
+<div id="config-warning" style="display:none;">
+  ⚠️ Configuração pendente: abra este arquivo, encontre a seção CONFIGURAÇÃO no início do script e cole o firebaseConfig do seu projeto.
+</div>
+
+<div id="auth-screen">
+  <div class="auth-box">
+    <h1>Painel do Polo</h1>
+    <p class="sub" id="auth-subtitle">Entre com seu e-mail e senha</p>
+    <div class="field"><label>E-mail</label><input type="email" id="auth-email"></div>
+    <div class="field"><label>Senha</label><input type="password" id="auth-password"></div>
+    <button class="btn-primary" id="btn-auth-submit">Entrar</button>
+    <div id="auth-error"></div>
+    <button class="link-btn" id="btn-toggle-mode">Ainda não tem conta? Criar conta</button>
+  </div>
+</div>
+
+<div id="app">
+  <div class="polobar">
+    <label>POLO ATIVO</label>
+    <select id="select-polo"></select>
+    <button class="small-btn" id="btn-manage-polos">Gerenciar polos</button>
+    <div class="spacer"></div>
+    <span id="user-email"></span>
+    <button class="small-btn" id="btn-logout">Sair</button>
+  </div>
+
+  <div class="topbar">
+    <div class="maintabs">
+      <button data-view="vendas" class="active">Vendas</button>
+      <button data-view="agenda">Agenda</button>
+      <button id="btn-go-relatorios">Relatórios</button>
+    </div>
+  </div>
+
+  <div class="view active" id="view-vendas">
+    <div class="topbar">
+      <div class="tabs" id="tabs-tipo">
+        <button data-filter="todos" class="active">Todos</button>
+        <button data-filter="b2b">B2B</button>
+        <button data-filter="b2c">B2C</button>
+      </div>
+      <input id="search" type="text" placeholder="Buscar por nome ou contato...">
+      <div class="spacer"></div>
+      <button id="btn-whatsapp">💬 Da conversa do WhatsApp</button>
+      <button id="btn-new-lead">+ Novo lead</button>
+    </div>
+    <div class="metrics" id="metrics"></div>
+    <div class="board" id="board"></div>
+  </div>
+
+  <div class="view" id="view-agenda">
+    <div class="topbar">
+      <div class="tabs" id="tabs-evento">
+        <button data-filter="todos" class="active">Todos</button>
+        <button data-filter="prova">Provas</button>
+        <button data-filter="aula">Aulas</button>
+        <button data-filter="sala">Sala</button>
+      </div>
+      <div class="spacer"></div>
+      <button id="btn-new-evento">+ Novo evento</button>
+    </div>
+    <div class="agenda-list" id="agenda-list"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-lead" hidden>
+  <div class="modal">
+    <h2 id="lead-modal-title">Novo lead</h2>
+    <form id="lead-form">
+      <div class="field"><label>Nome do lead / empresa</label><input type="text" id="f-nome" required></div>
+      <div class="field-row">
+        <div class="field"><label>Tipo</label><select id="f-tipo"><option value="b2b">B2B</option><option value="b2c">B2C</option></select></div>
+        <div class="field"><label>Origem</label><input type="text" id="f-origem"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Contato</label><input type="text" id="f-contato"></div>
+        <div class="field"><label>Valor (R$)</label><input type="number" id="f-valor" min="0" step="0.01"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Etapa</label><select id="f-etapa"></select></div>
+        <div class="field"><label>Follow-up</label><input type="date" id="f-followup"></div>
+      </div>
+      <div class="field"><label>Notas</label><textarea id="f-notas"></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-danger" id="btn-delete-lead" hidden>Excluir</button>
+        <div style="flex:1"></div>
+        <button type="button" class="btn-secondary" id="btn-cancel-lead">Cancelar</button>
+        <button type="submit" class="btn-primary" style="width:auto;">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="wa-overlay" hidden>
+  <div class="modal">
+    <h2>Criar lead a partir do WhatsApp</h2>
+    <p class="hint">Cole o texto da conversa. O sistema tenta identificar nome e telefone.</p>
+    <div class="field"><textarea id="wa-raw" style="min-height:110px;"></textarea></div>
+    <div class="modal-actions">
+      <div style="flex:1"></div>
+      <button type="button" class="btn-secondary" id="wa-cancel">Cancelar</button>
+      <button type="button" class="btn-primary" id="wa-parse" style="width:auto;">Continuar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-evento" hidden>
+  <div class="modal">
+    <h2 id="evento-modal-title">Novo evento</h2>
+    <form id="evento-form">
+      <div class="field"><label>Tipo</label><select id="e-tipo"><option value="prova">Prova</option><option value="aula">Aula/Atendimento</option><option value="sala">Uso de sala</option></select></div>
+      <div class="field"><label>Título</label><input type="text" id="e-titulo" required></div>
+      <div class="field-row">
+        <div class="field"><label>Data</label><input type="date" id="e-data" required></div>
+        <div class="field"><label>Início</label><input type="time" id="e-inicio" required></div>
+        <div class="field"><label>Fim</label><input type="time" id="e-fim"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Sala</label><input type="text" id="e-sala"></div>
+        <div class="field"><label>Responsável</label><input type="text" id="e-responsavel"></div>
+      </div>
+      <div class="field"><label>Observações</label><textarea id="e-obs"></textarea></div>
+      <div class="checklist" id="e-checklist-block" hidden>
+        <h3>Checklist de aplicação da prova</h3>
+        <div id="e-checklist-items"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-danger" id="btn-delete-evento" hidden>Excluir</button>
+        <div style="flex:1"></div>
+        <button type="button" class="btn-secondary" id="btn-cancel-evento">Cancelar</button>
+        <button type="submit" class="btn-primary" style="width:auto;">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="polo-overlay" hidden>
+  <div class="modal">
+    <h2>Gerenciar polos</h2>
+    <p class="hint">Crie polos e adicione colegas gestores (eles precisam já ter uma conta criada).</p>
+    <div class="field"><label>Seus polos</label><div id="my-polos-list"></div></div>
+    <div class="field-row">
+      <div class="field"><input type="text" id="new-polo-name" placeholder="Nome do novo polo"></div>
+      <button type="button" class="btn-secondary" id="btn-add-polo" style="height:38px;">+ Criar polo</button>
+    </div>
+    <div class="field" style="margin-top:18px;"><label>Adicionar gestor ao polo ativo</label>
+      <div class="field-row">
+        <input type="email" id="new-gestor-email" placeholder="e-mail do colega">
+        <button type="button" class="btn-secondary" id="btn-add-gestor" style="height:38px;">Adicionar</button>
+      </div>
+    </div>
+    <div id="gestores-do-polo"></div>
+    <div id="polo-manage-error" style="color:var(--red);font-size:12px;margin-top:8px;"></div>
+    <div class="modal-actions">
+      <div style="flex:1"></div>
+      <button type="button" class="btn-primary" id="polo-close" style="width:auto;">Concluído</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import {
+  getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, getDoc, setDoc,
+  getDocs, query, where, arrayUnion, arrayRemove, orderBy
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+/* ============ CONFIGURAÇÃO ============ */
+// Cole aqui o firebaseConfig do seu projeto
+// (Firebase Console > Configurações do projeto > Seus apps > SDK setup and configuration)
+const firebaseConfig = {
+  apiKey: "COLE_AQUI",
+  authDomain: "COLE_AQUI",
+  projectId: "COLE_AQUI",
+  storageBucket: "COLE_AQUI",
+  messagingSenderId: "COLE_AQUI",
+  appId: "COLE_AQUI",
+};
+
+if(firebaseConfig.apiKey === "COLE_AQUI"){
+  document.getElementById('config-warning').style.display = 'block';
+}
+
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+const STAGES = [
+  {id:'novo', label:'Novo lead'},{id:'contato', label:'Contato feito'},{id:'qualificado', label:'Qualificado'},
+  {id:'proposta', label:'Proposta enviada'},{id:'negociacao', label:'Negociação'},
+  {id:'ganho', label:'Ganho'},{id:'perdido', label:'Perdido'},
+];
+const CHECKLIST_TEMPLATE = [
+  'Sala reservada e confirmada','Material impresso (provas e gabaritos)','Aplicador/fiscal confirmado',
+  'Lista de presença pronta','Ata de aplicação preparada','Alunos avisados (lembrete enviado)',
+];
+
+let currentUser = null;
+let authMode = 'login';
+let polos = [];
+let selectedPoloId = null;
+let leads = [];
+let eventos = [];
+let currentLeadFilter = 'todos';
+let currentEventoFilter = 'todos';
+let searchTerm = '';
+let editingLeadId = null;
+let editingEventoId = null;
+let currentChecklist = [];
+
+function escapeHtml(str){ const d=document.createElement('div'); d.textContent=str||''; return d.innerHTML; }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function formatMoney(v){ if(v===null||v===undefined||v==='') return ''; return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+function formatDateBR(dateStr){ if(!dateStr) return ''; const [y,m,d]=dateStr.split('-'); return `${d}/${m}`; }
+function followUpStatus(dateStr, etapa){
+  if(!dateStr || etapa==='ganho' || etapa==='perdido') return null;
+  const t = todayStr();
+  if(dateStr < t) return 'overdue';
+  if(dateStr === t) return 'today';
+  return 'future';
+}
+function uid(){ return 'c'+Date.now()+Math.random().toString(16).slice(2,8); }
+
+/* ================= AUTH ================= */
+function updateAuthUI(){
+  document.getElementById('auth-subtitle').textContent = authMode === 'login' ? 'Entre com seu e-mail e senha' : 'Crie sua conta de gestor';
+  document.getElementById('btn-auth-submit').textContent = authMode === 'login' ? 'Entrar' : 'Criar conta';
+  document.getElementById('btn-toggle-mode').textContent = authMode === 'login' ? 'Ainda não tem conta? Criar conta' : 'Já tem conta? Entrar';
+}
+document.getElementById('btn-toggle-mode').addEventListener('click', () => {
+  authMode = authMode === 'login' ? 'signup' : 'login';
+  document.getElementById('auth-error').textContent = '';
+  updateAuthUI();
+});
+document.getElementById('btn-auth-submit').addEventListener('click', async () => {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.style.color = 'var(--red)';
+  errEl.textContent = '';
+  if(!email || !password){ errEl.textContent = 'Preencha e-mail e senha.'; return; }
+  try{
+    if(authMode === 'login'){
+      await signInWithEmailAndPassword(auth, email, password);
+    } else {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await setDoc(doc(db, 'usuarios', cred.user.uid), { email });
+    }
+  }catch(err){
+    errEl.textContent = traduzErro(err.code) || err.message;
+  }
+});
+function traduzErro(code){
+  const map = {
+    'auth/invalid-email': 'E-mail inválido.',
+    'auth/user-not-found': 'Usuário não encontrado.',
+    'auth/wrong-password': 'Senha incorreta.',
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
+    'auth/email-already-in-use': 'Esse e-mail já tem conta. Tente entrar.',
+    'auth/weak-password': 'Senha muito curta (mínimo 6 caracteres).',
+  };
+  return map[code];
+}
+document.getElementById('btn-logout').addEventListener('click', async () => { await signOut(auth); });
+
+onAuthStateChanged(auth, async (user) => {
+  if(user){
+    currentUser = user;
+    document.getElementById('user-email').textContent = user.email;
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    await loadPolos();
+    if(polos.length === 0){
+      await promptCreateFirstPolo();
+    }
+    renderPoloSelect();
+    await loadLeads();
+    await loadEventos();
+    renderVendas();
+    renderAgenda();
+  } else {
+    currentUser = null;
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+  }
+});
+
+async function promptCreateFirstPolo(){
+  const nome = prompt('Você ainda não administra nenhum polo. Digite o nome do seu primeiro polo:');
+  if(!nome) return;
+  const ref = await addDoc(collection(db, 'polos'), { nome, gestores: [currentUser.uid], criadoEm: todayStr() });
+  await loadPolos();
+}
+
+/* ================= POLOS ================= */
+async function loadPolos(){
+  const q = query(collection(db, 'polos'), where('gestores', 'array-contains', currentUser.uid));
+  const snap = await getDocs(q);
+  polos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const saved = localStorage.getItem('polo-selecionado');
+  if(polos.length && polos.find(p => p.id === saved)){
+    selectedPoloId = saved;
+  } else if(polos.length && !polos.find(p => p.id === selectedPoloId)){
+    selectedPoloId = polos[0].id;
+  }
+}
+function renderPoloSelect(){
+  document.getElementById('select-polo').innerHTML = polos.map(p =>
+    `<option value="${p.id}" ${p.id===selectedPoloId?'selected':''}>${escapeHtml(p.nome)}</option>`
+  ).join('');
+}
+document.getElementById('select-polo').addEventListener('change', async e => {
+  selectedPoloId = e.target.value;
+  localStorage.setItem('polo-selecionado', selectedPoloId);
+  await loadLeads(); await loadEventos();
+  renderVendas(); renderAgenda();
+});
+document.getElementById('btn-go-relatorios').addEventListener('click', () => {
+  if(selectedPoloId) localStorage.setItem('polo-selecionado', selectedPoloId);
+  window.location.href = 'relatorios.html';
+});
+document.getElementById('btn-manage-polos').addEventListener('click', async () => {
+  renderMyPolosList();
+  await renderGestoresDoPolo();
+  document.getElementById('polo-overlay').hidden = false;
+});
+document.getElementById('polo-close').addEventListener('click', () => { document.getElementById('polo-overlay').hidden = true; });
+function renderMyPolosList(){
+  document.getElementById('my-polos-list').innerHTML = polos.map(p => `<div class="gestor-row">${escapeHtml(p.nome)}</div>`).join('') || '<div class="gestor-row" style="color:var(--text-muted)">Nenhum polo ainda</div>';
+}
+document.getElementById('btn-add-polo').addEventListener('click', async () => {
+  const input = document.getElementById('new-polo-name');
+  const nome = input.value.trim();
+  if(!nome) return;
+  await addDoc(collection(db, 'polos'), { nome, gestores: [currentUser.uid], criadoEm: todayStr() });
+  input.value = '';
+  await loadPolos();
+  renderPoloSelect();
+  renderMyPolosList();
+});
+async function renderGestoresDoPolo(){
+  const box = document.getElementById('gestores-do-polo');
+  if(!selectedPoloId){ box.innerHTML = ''; return; }
+  const poloSnap = await getDoc(doc(db, 'polos', selectedPoloId));
+  const gestorIds = poloSnap.data().gestores || [];
+  const rows = await Promise.all(gestorIds.map(async uidG => {
+    const uSnap = await getDoc(doc(db, 'usuarios', uidG));
+    const email = uSnap.exists() ? uSnap.data().email : uidG;
+    return { uid: uidG, email };
+  }));
+  box.innerHTML = rows.map(r => `
+    <div class="gestor-row">
+      <span>${escapeHtml(r.email)}</span>
+      ${r.uid !== currentUser.uid ? `<button data-uid="${r.uid}" class="btn-remove-gestor">Remover</button>` : '<span style="color:var(--text-muted);font-size:11px;">você</span>'}
+    </div>
+  `).join('');
+  box.querySelectorAll('.btn-remove-gestor').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await updateDoc(doc(db, 'polos', selectedPoloId), { gestores: arrayRemove(btn.dataset.uid) });
+      renderGestoresDoPolo();
+    });
+  });
+}
+document.getElementById('btn-add-gestor').addEventListener('click', async () => {
+  const email = document.getElementById('new-gestor-email').value.trim();
+  const errEl = document.getElementById('polo-manage-error');
+  errEl.textContent = '';
+  if(!email || !selectedPoloId) return;
+  const q = query(collection(db, 'usuarios'), where('email', '==', email));
+  const snap = await getDocs(q);
+  if(snap.empty){ errEl.textContent = 'Esse e-mail ainda não tem conta criada no sistema.'; return; }
+  const targetUid = snap.docs[0].id;
+  await updateDoc(doc(db, 'polos', selectedPoloId), { gestores: arrayUnion(targetUid) });
+  document.getElementById('new-gestor-email').value = '';
+  renderGestoresDoPolo();
+});
+
+/* ================= VENDAS (LEADS) ================= */
+async function loadLeads(){
+  if(!selectedPoloId){ leads = []; return; }
+  const snap = await getDocs(collection(db, 'polos', selectedPoloId, 'leads'));
+  leads = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+function getFilteredLeads(){
+  return leads.filter(l => {
+    if(currentLeadFilter !== 'todos' && l.tipo !== currentLeadFilter) return false;
+    if(searchTerm){
+      const t = searchTerm.toLowerCase();
+      if(!l.nome.toLowerCase().includes(t) && !(l.contato||'').toLowerCase().includes(t)) return false;
+    }
+    return true;
+  });
+}
+function renderVendas(){
+  const all = getFilteredLeads();
+  const ativos = all.filter(l => l.etapa!=='ganho' && l.etapa!=='perdido');
+  const atrasados = ativos.filter(l => followUpStatus(l.proximoFollowUp,l.etapa)==='overdue');
+  const ganhos = all.filter(l=>l.etapa==='ganho'), perdidos = all.filter(l=>l.etapa==='perdido');
+  const totalFechados = ganhos.length+perdidos.length;
+  const taxa = totalFechados>0 ? Math.round((ganhos.length/totalFechados)*100) : 0;
+  const emNeg = all.filter(l=>l.etapa==='proposta'||l.etapa==='negociacao').reduce((s,l)=>s+(Number(l.valor)||0),0);
+  document.getElementById('metrics').innerHTML = `
+    <div class="metric"><div class="value">${ativos.length}</div><div class="label">Leads ativos</div></div>
+    <div class="metric ${atrasados.length>0?'warn':''}"><div class="value">${atrasados.length}</div><div class="label">Follow-ups atrasados</div></div>
+    <div class="metric"><div class="value">${taxa}%</div><div class="label">Taxa de conversão</div></div>
+    <div class="metric"><div class="value">${formatMoney(emNeg)}</div><div class="label">Em proposta/negociação</div></div>
+  `;
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  STAGES.forEach(stage => {
+    const stageLeads = all.filter(l => l.etapa === stage.id);
+    const col = document.createElement('div');
+    col.className = 'column';
+    col.innerHTML = `<div class="column-header"><h3>${stage.label}</h3><span>${stageLeads.length}</span></div><div class="column-body"></div>`;
+    const body = col.querySelector('.column-body');
+    stageLeads.forEach(lead => {
+      const card = document.createElement('div');
+      card.className = 'card'; card.draggable = true;
+      const fu = followUpStatus(lead.proximoFollowUp, lead.etapa);
+      let fuHtml = '';
+      if(lead.proximoFollowUp){
+        const label = fu==='overdue' ? `Atrasado desde ${formatDateBR(lead.proximoFollowUp)}` : fu==='today' ? 'Follow-up hoje' : `Follow-up em ${formatDateBR(lead.proximoFollowUp)}`;
+        fuHtml = `<div class="card-followup ${fu||''}">${label}</div>`;
+      }
+      card.innerHTML = `
+        <div class="card-top"><div class="card-name">${escapeHtml(lead.nome)}</div><span class="tag ${lead.tipo}">${lead.tipo.toUpperCase()}</span></div>
+        ${lead.valor ? `<div class="card-value">${formatMoney(lead.valor)}</div>` : ''}
+        ${fuHtml}
+      `;
+      card.addEventListener('click', () => openLeadModal(lead.id));
+      card.addEventListener('dragstart', e => { card.classList.add('dragging'); e.dataTransfer.setData('text/plain', lead.id); });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+      body.appendChild(card);
+    });
+    col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('dragover'); });
+    col.addEventListener('dragleave', () => col.classList.remove('dragover'));
+    col.addEventListener('drop', async e => {
+      e.preventDefault(); col.classList.remove('dragover');
+      const id = e.dataTransfer.getData('text/plain');
+      const lead = leads.find(l => l.id === id);
+      if(lead && lead.etapa !== stage.id){
+        await updateDoc(doc(db, 'polos', selectedPoloId, 'leads', id), { etapa: stage.id });
+        lead.etapa = stage.id;
+        renderVendas();
+      }
+    });
+    board.appendChild(col);
+  });
+}
+function populateEtapaSelect(){
+  document.getElementById('f-etapa').innerHTML = STAGES.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+}
+function openLeadModal(id=null){
+  editingLeadId = id;
+  const title = document.getElementById('lead-modal-title');
+  const btnDel = document.getElementById('btn-delete-lead');
+  document.getElementById('lead-form').reset();
+  if(id){
+    const lead = leads.find(l => l.id === id);
+    title.textContent = 'Editar lead';
+    document.getElementById('f-nome').value = lead.nome;
+    document.getElementById('f-tipo').value = lead.tipo;
+    document.getElementById('f-origem').value = lead.origem || '';
+    document.getElementById('f-contato').value = lead.contato || '';
+    document.getElementById('f-valor').value = lead.valor || '';
+    document.getElementById('f-etapa').value = lead.etapa;
+    document.getElementById('f-followup').value = lead.proximoFollowUp || '';
+    document.getElementById('f-notas').value = lead.notas || '';
+    btnDel.hidden = false;
+  } else {
+    title.textContent = 'Novo lead';
+    document.getElementById('f-etapa').value = 'novo';
+    btnDel.hidden = true;
+  }
+  document.getElementById('modal-lead').hidden = false;
+}
+document.getElementById('btn-cancel-lead').addEventListener('click', () => document.getElementById('modal-lead').hidden = true);
+document.getElementById('lead-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = {
+    nome: document.getElementById('f-nome').value.trim(),
+    tipo: document.getElementById('f-tipo').value,
+    origem: document.getElementById('f-origem').value.trim(),
+    contato: document.getElementById('f-contato').value.trim(),
+    valor: document.getElementById('f-valor').value || null,
+    etapa: document.getElementById('f-etapa').value,
+    proximoFollowUp: document.getElementById('f-followup').value || null,
+    notas: document.getElementById('f-notas').value.trim(),
+  };
+  if(!data.nome) return;
+  if(editingLeadId){
+    await updateDoc(doc(db, 'polos', selectedPoloId, 'leads', editingLeadId), data);
+  } else {
+    data.criadoEm = todayStr();
+    await addDoc(collection(db, 'polos', selectedPoloId, 'leads'), data);
+  }
+  document.getElementById('modal-lead').hidden = true;
+  await loadLeads();
+  renderVendas();
+});
+document.getElementById('btn-delete-lead').addEventListener('click', async () => {
+  if(!editingLeadId || !confirm('Excluir este lead?')) return;
+  await deleteDoc(doc(db, 'polos', selectedPoloId, 'leads', editingLeadId));
+  document.getElementById('modal-lead').hidden = true;
+  await loadLeads();
+  renderVendas();
+});
+document.getElementById('btn-new-lead').addEventListener('click', () => openLeadModal());
+document.getElementById('tabs-tipo').addEventListener('click', e => {
+  if(e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#tabs-tipo button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  currentLeadFilter = e.target.dataset.filter;
+  renderVendas();
+});
+document.getElementById('search').addEventListener('input', e => { searchTerm = e.target.value; renderVendas(); });
+
+function parseWhatsappText(raw){
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const phoneRegex = /(\(?\d{2}\)?\s?)?\d{4,5}[-\s]?\d{4}/;
+  let phone = '', nome = '';
+  const notesLines = [];
+  lines.forEach(line => {
+    const m = line.match(phoneRegex);
+    if(m && !phone){ phone = m[0]; return; }
+    if(!nome && !m){ nome = line; return; }
+    notesLines.push(line);
+  });
+  return { nome: nome || 'Lead do WhatsApp', contato: phone, notas: notesLines.join(' ') };
+}
+document.getElementById('btn-whatsapp').addEventListener('click', () => {
+  document.getElementById('wa-raw').value = '';
+  document.getElementById('wa-overlay').hidden = false;
+});
+document.getElementById('wa-cancel').addEventListener('click', () => document.getElementById('wa-overlay').hidden = true);
+document.getElementById('wa-parse').addEventListener('click', () => {
+  const raw = document.getElementById('wa-raw').value.trim();
+  document.getElementById('wa-overlay').hidden = true;
+  if(!raw) return;
+  const parsed = parseWhatsappText(raw);
+  editingLeadId = null;
+  document.getElementById('lead-form').reset();
+  document.getElementById('lead-modal-title').textContent = 'Novo lead (do WhatsApp)';
+  document.getElementById('f-nome').value = parsed.nome;
+  document.getElementById('f-tipo').value = 'b2c';
+  document.getElementById('f-origem').value = 'WhatsApp';
+  document.getElementById('f-contato').value = parsed.contato;
+  document.getElementById('f-etapa').value = 'novo';
+  document.getElementById('f-followup').value = todayStr();
+  document.getElementById('f-notas').value = parsed.notas;
+  document.getElementById('btn-delete-lead').hidden = true;
+  document.getElementById('modal-lead').hidden = false;
+});
+
+/* ================= AGENDA (EVENTOS) ================= */
+async function loadEventos(){
+  if(!selectedPoloId){ eventos = []; return; }
+  const snap = await getDocs(collection(db, 'polos', selectedPoloId, 'eventos'));
+  eventos = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a,b) => (a.data+ (a.horaInicio||'')).localeCompare(b.data + (b.horaInicio||'')));
+}
+function renderAgenda(){
+  const list = document.getElementById('agenda-list');
+  const filtered = eventos.filter(ev => currentEventoFilter === 'todos' || ev.tipo === currentEventoFilter);
+  list.innerHTML = '';
+  if(filtered.length === 0){
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Nenhum evento cadastrado.</div>';
+    return;
+  }
+  filtered.forEach(ev => {
+    const card = document.createElement('div');
+    card.className = 'ev-card ' + ev.tipo;
+    let progHtml = '';
+    if(ev.tipo === 'prova' && ev.checklist && ev.checklist.length){
+      const done = ev.checklist.filter(c => c.done).length;
+      progHtml = `<div class="ev-progress">${done}/${ev.checklist.length} itens</div>`;
+    }
+    card.innerHTML = `
+      <div class="ev-info">
+        <div class="ev-titulo">${escapeHtml(ev.titulo)}</div>
+        <div class="ev-meta">${formatDateBR(ev.data)} · ${ev.horaInicio||''}${ev.horaFim?'–'+ev.horaFim:''} ${ev.sala?'· '+escapeHtml(ev.sala):''} ${ev.responsavel?'· '+escapeHtml(ev.responsavel):''}</div>
+      </div>
+      ${progHtml}
+    `;
+    card.addEventListener('click', () => openEventoModal(ev.id));
+    list.appendChild(card);
+  });
+}
+document.getElementById('tabs-evento').addEventListener('click', e => {
+  if(e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#tabs-evento button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  currentEventoFilter = e.target.dataset.filter;
+  renderAgenda();
+});
+function renderChecklistFields(items){
+  const block = document.getElementById('e-checklist-block');
+  const tipo = document.getElementById('e-tipo').value;
+  if(tipo !== 'prova'){ block.hidden = true; return; }
+  block.hidden = false;
+  const container = document.getElementById('e-checklist-items');
+  container.innerHTML = '';
+  items.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'check-item' + (item.done ? ' done' : '');
+    row.innerHTML = `<input type="checkbox" id="chk-${item.id}" ${item.done?'checked':''}><label for="chk-${item.id}">${escapeHtml(item.label)}</label>`;
+    row.querySelector('input').addEventListener('change', e => { item.done = e.target.checked; row.classList.toggle('done', item.done); });
+    container.appendChild(row);
+  });
+}
+document.getElementById('e-tipo').addEventListener('change', () => {
+  if(document.getElementById('e-tipo').value === 'prova' && currentChecklist.length === 0){
+    currentChecklist = CHECKLIST_TEMPLATE.map(l => ({id:uid(), label:l, done:false}));
+  }
+  renderChecklistFields(currentChecklist);
+});
+function openEventoModal(id=null){
+  editingEventoId = id;
+  document.getElementById('evento-form').reset();
+  const btnDel = document.getElementById('btn-delete-evento');
+  if(id){
+    const ev = eventos.find(e => e.id === id);
+    document.getElementById('evento-modal-title').textContent = 'Editar evento';
+    document.getElementById('e-tipo').value = ev.tipo;
+    document.getElementById('e-titulo').value = ev.titulo;
+    document.getElementById('e-data').value = ev.data;
+    document.getElementById('e-inicio').value = ev.horaInicio || '';
+    document.getElementById('e-fim').value = ev.horaFim || '';
+    document.getElementById('e-sala').value = ev.sala || '';
+    document.getElementById('e-responsavel').value = ev.responsavel || '';
+    document.getElementById('e-obs').value = ev.obs || '';
+    currentChecklist = ev.tipo === 'prova' ? JSON.parse(JSON.stringify(ev.checklist || CHECKLIST_TEMPLATE.map(l=>({id:uid(),label:l,done:false})))) : [];
+    btnDel.hidden = false;
+  } else {
+    document.getElementById('evento-modal-title').textContent = 'Novo evento';
+    document.getElementById('e-tipo').value = 'prova';
+    currentChecklist = CHECKLIST_TEMPLATE.map(l => ({id:uid(), label:l, done:false}));
+    btnDel.hidden = true;
+  }
+  renderChecklistFields(currentChecklist);
+  document.getElementById('modal-evento').hidden = false;
+}
+document.getElementById('btn-new-evento').addEventListener('click', () => openEventoModal());
+document.getElementById('btn-cancel-evento').addEventListener('click', () => document.getElementById('modal-evento').hidden = true);
+document.getElementById('evento-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = {
+    tipo: document.getElementById('e-tipo').value,
+    titulo: document.getElementById('e-titulo').value.trim(),
+    data: document.getElementById('e-data').value,
+    horaInicio: document.getElementById('e-inicio').value,
+    horaFim: document.getElementById('e-fim').value || null,
+    sala: document.getElementById('e-sala').value.trim(),
+    responsavel: document.getElementById('e-responsavel').value.trim(),
+    obs: document.getElementById('e-obs').value.trim(),
+    checklist: document.getElementById('e-tipo').value === 'prova' ? currentChecklist : null,
+  };
+  if(!data.titulo || !data.data || !data.horaInicio) return;
+  if(editingEventoId){
+    await updateDoc(doc(db, 'polos', selectedPoloId, 'eventos', editingEventoId), data);
+  } else {
+    data.criadoEm = todayStr();
+    await addDoc(collection(db, 'polos', selectedPoloId, 'eventos'), data);
+  }
+  document.getElementById('modal-evento').hidden = true;
+  await loadEventos();
+  renderAgenda();
+});
+document.getElementById('btn-delete-evento').addEventListener('click', async () => {
+  if(!editingEventoId || !confirm('Excluir este evento?')) return;
+  await deleteDoc(doc(db, 'polos', selectedPoloId, 'eventos', editingEventoId));
+  document.getElementById('modal-evento').hidden = true;
+  await loadEventos();
+  renderAgenda();
+});
+
+document.querySelector('.maintabs').addEventListener('click', e => {
+  if(e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('.maintabs button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  const view = e.target.dataset.view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+});
+
+populateEtapaSelect();
+updateAuthUI();
+</script>
+</body>
+</html>
