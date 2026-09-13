@@ -107,6 +107,11 @@
   .check-item.done label{color:var(--text-muted);text-decoration:line-through;}
   .gestor-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
   .gestor-row button{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;}
+  .bulk-item{background:var(--panel-alt);border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;}
+  .bulk-item input[type="checkbox"]{width:auto;margin-top:9px;}
+  .bulk-item .bulk-fields{flex:1;display:flex;flex-direction:column;gap:6px;}
+  .bulk-item .bulk-fields input{width:100%;}
+  .bulk-item .bulk-notes-preview{font-size:11px;color:var(--text-muted);max-height:36px;overflow:hidden;}
 </style>
 </head>
 <body>
@@ -155,6 +160,7 @@
       <input id="search" type="text" placeholder="Buscar por nome ou contato...">
       <div class="spacer"></div>
       <button id="btn-whatsapp">💬 Da conversa do WhatsApp</button>
+      <button id="btn-whatsapp-bulk">📥 Importar vários</button>
       <button id="btn-new-lead">+ Novo lead</button>
     </div>
     <div class="metrics" id="metrics"></div>
@@ -267,6 +273,31 @@
     <div class="modal-actions">
       <div style="flex:1"></div>
       <button type="button" class="btn-primary" id="polo-close" style="width:auto;">Concluído</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="bulk-overlay" hidden>
+  <div class="modal" style="max-width:600px;">
+    <h2>Importar vários contatos do WhatsApp</h2>
+    <p class="hint">Cole várias conversas exportadas, uma depois da outra, deixando uma <strong>linha em branco</strong> entre cada uma. O sistema separa e identifica nome e telefone de cada bloco.</p>
+    <div class="field" id="bulk-step-1">
+      <textarea id="bulk-raw" style="min-height:160px;" placeholder="João Silva&#10;(19) 99999-1111&#10;mensagens da conversa...&#10;&#10;Maria Souza&#10;(19) 99999-2222&#10;outras mensagens..."></textarea>
+    </div>
+    <div class="modal-actions" id="bulk-actions-1">
+      <div style="flex:1"></div>
+      <button type="button" class="btn-secondary" id="bulk-cancel-1">Cancelar</button>
+      <button type="button" class="btn-primary" id="bulk-parse" style="width:auto;">Separar contatos</button>
+    </div>
+
+    <div id="bulk-step-2" hidden>
+      <p class="hint" id="bulk-count-label"></p>
+      <div id="bulk-preview-list" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;"></div>
+      <div class="modal-actions">
+        <div style="flex:1"></div>
+        <button type="button" class="btn-secondary" id="bulk-cancel-2">Cancelar</button>
+        <button type="button" class="btn-primary" id="bulk-confirm" style="width:auto;">Importar selecionados</button>
+      </div>
     </div>
   </div>
 </div>
@@ -667,6 +698,88 @@ document.getElementById('wa-parse').addEventListener('click', () => {
   document.getElementById('f-notas').value = parsed.notas;
   document.getElementById('btn-delete-lead').hidden = true;
   document.getElementById('modal-lead').hidden = false;
+});
+
+/* ---- Importação em lote ---- */
+let bulkItems = [];
+
+function splitIntoBlocks(raw){
+  return raw.split(/\n\s*\n+/).map(b => b.trim()).filter(Boolean);
+}
+
+document.getElementById('btn-whatsapp-bulk').addEventListener('click', () => {
+  document.getElementById('bulk-raw').value = '';
+  document.getElementById('bulk-step-1').hidden = false;
+  document.getElementById('bulk-actions-1').hidden = false;
+  document.getElementById('bulk-step-2').hidden = true;
+  document.getElementById('bulk-overlay').hidden = false;
+});
+function closeBulkModal(){ document.getElementById('bulk-overlay').hidden = true; }
+document.getElementById('bulk-cancel-1').addEventListener('click', closeBulkModal);
+document.getElementById('bulk-cancel-2').addEventListener('click', closeBulkModal);
+document.getElementById('bulk-overlay').addEventListener('click', e => { if(e.target.id === 'bulk-overlay') closeBulkModal(); });
+
+document.getElementById('bulk-parse').addEventListener('click', () => {
+  const raw = document.getElementById('bulk-raw').value.trim();
+  if(!raw) return;
+  const blocks = splitIntoBlocks(raw);
+  bulkItems = blocks.map(b => {
+    const parsed = parseWhatsappText(b);
+    return { include: true, nome: parsed.nome, contato: parsed.contato, notas: parsed.notas };
+  });
+  renderBulkPreview();
+  document.getElementById('bulk-step-1').hidden = true;
+  document.getElementById('bulk-actions-1').hidden = true;
+  document.getElementById('bulk-step-2').hidden = false;
+});
+
+function renderBulkPreview(){
+  document.getElementById('bulk-count-label').textContent = `${bulkItems.length} contato(s) identificado(s). Revise antes de importar:`;
+  const list = document.getElementById('bulk-preview-list');
+  list.innerHTML = '';
+  bulkItems.forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.className = 'bulk-item';
+    row.innerHTML = `
+      <input type="checkbox" ${item.include ? 'checked' : ''}>
+      <div class="bulk-fields">
+        <input type="text" placeholder="Nome" value="${escapeHtml(item.nome)}">
+        <input type="text" placeholder="Telefone/contato" value="${escapeHtml(item.contato)}">
+        ${item.notas ? `<div class="bulk-notes-preview">${escapeHtml(item.notas)}</div>` : ''}
+      </div>
+    `;
+    const [chk, nomeInput, contatoInput] = row.querySelectorAll('input');
+    chk.addEventListener('change', e => { item.include = e.target.checked; });
+    nomeInput.addEventListener('input', e => { item.nome = e.target.value; });
+    contatoInput.addEventListener('input', e => { item.contato = e.target.value; });
+    list.appendChild(row);
+  });
+}
+
+document.getElementById('bulk-confirm').addEventListener('click', async () => {
+  const selected = bulkItems.filter(i => i.include && i.nome.trim());
+  if(selected.length === 0){ closeBulkModal(); return; }
+  const btn = document.getElementById('bulk-confirm');
+  btn.textContent = 'Importando...';
+  btn.disabled = true;
+  for(const item of selected){
+    await addDoc(collection(db, 'polos', selectedPoloId, 'leads'), {
+      nome: item.nome.trim(),
+      tipo: 'b2c',
+      origem: 'WhatsApp (importado em lote)',
+      contato: item.contato.trim(),
+      valor: null,
+      etapa: 'novo',
+      proximoFollowUp: todayStr(),
+      notas: item.notas || '',
+      criadoEm: todayStr(),
+    });
+  }
+  btn.textContent = 'Importar selecionados';
+  btn.disabled = false;
+  closeBulkModal();
+  await loadLeads();
+  renderVendas();
 });
 
 /* ================= AGENDA (EVENTOS) ================= */
