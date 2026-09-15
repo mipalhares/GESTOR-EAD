@@ -170,6 +170,7 @@
       <input id="search" type="text" placeholder="Buscar por nome ou contato...">
       <div class="spacer"></div>
       <button class="small-btn" id="btn-export-leads">⬇️ Exportar CSV</button>
+      <button class="small-btn" id="btn-import-csv">📄 Importar CSV</button>
       <button id="btn-whatsapp">💬 Da conversa do WhatsApp</button>
       <button id="btn-whatsapp-bulk">📥 Importar vários</button>
       <button id="btn-new-lead">+ Novo lead</button>
@@ -346,6 +347,26 @@
         <button type="button" class="btn-secondary" id="bulk-cancel-2">Cancelar</button>
         <button type="button" class="btn-primary" id="bulk-confirm" style="width:auto;">Importar selecionados</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="csv-overlay" hidden>
+  <div class="modal" style="max-width:560px;">
+    <h2>Importar contatos de uma planilha CSV</h2>
+    <p class="hint">Selecione o arquivo CSV (contatos, conversas exportadas, etc). A primeira linha deve ter os nomes das colunas — pode ser de qualquer sistema, você mesmo indica o que é o quê a seguir.</p>
+    <div class="field"><input type="file" id="csv-file" accept=".csv,text/csv"></div>
+    <div id="csv-mapping" hidden>
+      <p class="hint" id="csv-count-label"></p>
+      <div class="field"><label>Nome (obrigatório)</label><select id="map-nome"></select></div>
+      <div class="field"><label>Telefone/contato</label><select id="map-contato"></select></div>
+      <div class="field"><label>Origem</label><select id="map-origem"></select></div>
+      <div class="field"><label>Notas/observações</label><select id="map-notas"></select></div>
+    </div>
+    <div class="modal-actions">
+      <div style="flex:1"></div>
+      <button type="button" class="btn-secondary" id="csv-cancel">Cancelar</button>
+      <button type="button" class="btn-primary" id="csv-import" style="width:auto;" hidden>Importar</button>
     </div>
   </div>
 </div>
@@ -1093,6 +1114,99 @@ document.getElementById('bulk-confirm').addEventListener('click', async () => {
   closeBulkModal();
   await loadLeads();
   renderVendas();
+});
+
+/* ---- Importação de planilha CSV ---- */
+let csvHeaders = [];
+let csvRows = [];
+
+function parseCSV(text){
+  const firstLine = text.split(/\r?\n/)[0] || '';
+  const delimiter = (firstLine.match(/;/g)||[]).length > (firstLine.match(/,/g)||[]).length ? ';' : ',';
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){ if(text[i+1] === '"'){ field+='"'; i++; } else { inQuotes=false; } }
+      else field += c;
+    } else {
+      if(c === '"'){ inQuotes = true; }
+      else if(c === delimiter){ row.push(field); field=''; }
+      else if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else if(c === '\r'){ /* ignora */ }
+      else field += c;
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r => !(r.length===1 && r[0]===''));
+}
+
+document.getElementById('btn-import-csv').addEventListener('click', () => {
+  document.getElementById('csv-file').value = '';
+  document.getElementById('csv-mapping').hidden = true;
+  document.getElementById('csv-import').hidden = true;
+  document.getElementById('csv-overlay').hidden = false;
+});
+document.getElementById('csv-cancel').addEventListener('click', () => document.getElementById('csv-overlay').hidden = true);
+document.getElementById('csv-overlay').addEventListener('click', e => { if(e.target.id === 'csv-overlay') document.getElementById('csv-overlay').hidden = true; });
+
+function guessColumn(keywords){
+  return csvHeaders.findIndex(h => keywords.some(k => (h||'').toLowerCase().includes(k)));
+}
+function populateCsvMapping(){
+  const opts = ['<option value="-1">(nenhuma)</option>'].concat(csvHeaders.map((h,i) => `<option value="${i}">${escapeHtml(h)}</option>`)).join('');
+  ['map-nome','map-contato','map-origem','map-notas'].forEach(id => document.getElementById(id).innerHTML = opts);
+  const guesses = {
+    'map-nome': guessColumn(['nome','name']),
+    'map-contato': guessColumn(['telefone','phone','contato','celular','whats']),
+    'map-origem': guessColumn(['origem','fonte','source']),
+    'map-notas': guessColumn(['nota','obs','mensagem','coment']),
+  };
+  Object.entries(guesses).forEach(([id, idx]) => { if(idx >= 0) document.getElementById(id).value = String(idx); });
+}
+
+document.getElementById('csv-file').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const text = await file.text();
+  const rows = parseCSV(text);
+  if(rows.length < 2){ alert('Não consegui encontrar linhas de dados nesse arquivo.'); return; }
+  csvHeaders = rows[0];
+  csvRows = rows.slice(1);
+  populateCsvMapping();
+  document.getElementById('csv-count-label').textContent = `${csvRows.length} linha(s) encontrada(s). Diga qual coluna é cada coisa:`;
+  document.getElementById('csv-mapping').hidden = false;
+  document.getElementById('csv-import').hidden = false;
+});
+
+document.getElementById('csv-import').addEventListener('click', async () => {
+  const idxNome = Number(document.getElementById('map-nome').value);
+  const idxContato = Number(document.getElementById('map-contato').value);
+  const idxOrigem = Number(document.getElementById('map-origem').value);
+  const idxNotas = Number(document.getElementById('map-notas').value);
+  if(idxNome < 0){ alert('Selecione qual coluna é o nome — esse campo é obrigatório.'); return; }
+  const btn = document.getElementById('csv-import');
+  btn.textContent = 'Importando...'; btn.disabled = true;
+  let count = 0;
+  for(const row of csvRows){
+    const nome = (row[idxNome] || '').trim();
+    if(!nome) continue;
+    const contato = idxContato >= 0 ? (row[idxContato]||'').trim() : '';
+    const origemRaw = idxOrigem >= 0 ? (row[idxOrigem]||'').trim() : '';
+    const origem = ORIGENS.find(o => o.toLowerCase() === origemRaw.toLowerCase()) || (origemRaw ? 'Outro' : '');
+    const notas = idxNotas >= 0 ? (row[idxNotas]||'').trim() : '';
+    await addDoc(collection(db, 'polos', selectedPoloId, 'leads'), {
+      nome, tipo:'b2c', origem, contato, valor:null, etapa:'novo',
+      proximoFollowUp: todayStr(), notas, criadoEm: todayStr(),
+    });
+    count++;
+  }
+  btn.textContent = 'Importar'; btn.disabled = false;
+  document.getElementById('csv-overlay').hidden = true;
+  await loadLeads();
+  renderVendas();
+  alert(`${count} lead(s) importado(s) com sucesso.`);
 });
 
 /* ================= AGENDA (EVENTOS) ================= */
