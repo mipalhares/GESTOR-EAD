@@ -38,10 +38,21 @@
   .field textarea{resize:vertical;min-height:80px;}
   .field-row{display:flex;gap:10px;}
   .field-row .field{flex:1;}
+  .field input:disabled, .field select:disabled{opacity:0.55;cursor:not-allowed;}
 
   .section-block{border-top:1px solid var(--border);padding-top:16px;margin-top:16px;}
-  .section-block h3{font-size:15px;margin-bottom:10px;}
-  .section-block p.desc{color:var(--text-muted);font-size:12px;margin:-4px 0 10px 0;}
+  .section-block .sb-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .section-block h3{font-size:15px;}
+  .section-block p.desc{color:var(--text-muted);font-size:12px;margin:0 0 12px 0;}
+
+  .date-group{margin-bottom:16px;}
+  .date-group .date-label{font-family:'Fraunces',serif;font-size:14px;color:var(--gold);margin-bottom:8px;}
+  .acao-card{background:var(--panel-alt);border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin-bottom:8px;cursor:pointer;}
+  .acao-card:hover{border-color:var(--gold);}
+  .acao-card .acao-titulo{font-size:13.5px;font-weight:600;}
+  .acao-card .acao-detalhes{font-size:12px;color:var(--text-muted);margin-top:4px;max-height:32px;overflow:hidden;}
+  .acao-thumbs{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+  .acao-thumbs img{width:48px;height:36px;object-fit:cover;border-radius:5px;border:1px solid var(--border);}
 
   .photo-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}
   .photo-item{width:120px;}
@@ -51,12 +62,19 @@
   .add-photo-btn{border:1px dashed var(--border);border-radius:8px;width:120px;height:90px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);cursor:pointer;font-size:11px;text-align:center;}
   input[type="file"]{display:none;}
 
-  .actions{display:flex;gap:10px;margin-top:22px;align-items:center;}
+  .actions{display:flex;gap:10px;margin-top:22px;align-items:center;flex-wrap:wrap;}
   .btn-primary{background:var(--gold);color:#1B1B14;border:none;padding:10px 20px;border-radius:8px;font-weight:600;font-size:13.5px;cursor:pointer;}
   .btn-secondary{background:none;border:1px solid var(--border);color:var(--text-muted);padding:10px 16px;border-radius:8px;font-size:13.5px;cursor:pointer;}
   .btn-pdf{background:var(--teal);color:#0F1B17;border:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:13.5px;cursor:pointer;}
+  .btn-danger{background:none;border:none;color:var(--red);font-size:12.5px;cursor:pointer;text-decoration:underline;}
   #save-status{font-size:12px;color:var(--text-muted);}
   #loading-screen{padding:60px;text-align:center;color:var(--text-muted);}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(10,12,18,0.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal-overlay[hidden]{display:none;}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:14px;width:100%;max-width:460px;padding:26px;max-height:88vh;overflow-y:auto;}
+  .modal h2{font-size:19px;margin-bottom:14px;}
+  .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:10px;}
 </style>
 </head>
 <body>
@@ -101,40 +119,47 @@
       </div>
 
       <div class="section-block">
-        <h3>Infraestrutura</h3>
-        <p class="desc">Condições do espaço: salas, equipamentos, limpeza, manutenção geral.</p>
-        <div class="field"><textarea id="sec-infra-texto" placeholder="Descreva a situação da infraestrutura neste mês..."></textarea></div>
-        <div class="photo-grid" id="sec-infra-fotos"></div>
-      </div>
-
-      <div class="section-block">
-        <h3>Eventos do mês</h3>
-        <p class="desc">Provas, aulas, atividades e ações realizadas.</p>
-        <div class="field"><textarea id="sec-eventos-texto" placeholder="Descreva os principais eventos do mês..."></textarea></div>
-        <div class="photo-grid" id="sec-eventos-fotos"></div>
-      </div>
-
-      <div class="section-block">
-        <h3>Ocorrências</h3>
-        <p class="desc">Problemas, imprevistos, pendências que precisam de atenção.</p>
-        <div class="field"><textarea id="sec-ocorrencias-texto" placeholder="Descreva ocorrências, se houver..."></textarea></div>
-        <div class="photo-grid" id="sec-ocorrencias-fotos"></div>
+        <div class="sb-header">
+          <h3>Ações do mês</h3>
+          <button type="button" class="btn-secondary" id="btn-new-acao" style="width:auto;">+ Nova ação</button>
+        </div>
+        <p class="desc">Registre cada ação ou evento com data, fotos e detalhes de como ocorreu. Pode haver mais de uma ação no mesmo dia.</p>
+        <div id="acoes-list"></div>
       </div>
 
       <div class="section-block">
         <h3>Observações gerais / Próximos passos</h3>
-        <p class="desc">Comentários finais e planos para o próximo mês.</p>
-        <div class="field"><textarea id="sec-observacoes-texto" placeholder="Observações finais..."></textarea></div>
-        <div class="photo-grid" id="sec-observacoes-fotos"></div>
+        <p class="desc">Comentários finais do mês e planos para o próximo.</p>
+        <div class="field"><textarea id="observacoes-texto" placeholder="Observações finais..."></textarea></div>
       </div>
 
       <div class="actions">
         <button class="btn-primary" id="btn-save">Salvar relatório</button>
         <button class="btn-pdf" id="btn-pdf">Baixar PDF</button>
-        <button class="btn-secondary" id="btn-delete-report" style="display:none;">Excluir</button>
+        <button class="btn-secondary" id="btn-delete-report" style="display:none;">Excluir relatório do mês</button>
         <span id="save-status"></span>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-acao" hidden>
+  <div class="modal">
+    <h2 id="acao-modal-title">Nova ação</h2>
+    <form id="acao-form">
+      <div class="field-row">
+        <div class="field"><label>Data</label><input type="date" id="a-data" required></div>
+        <div class="field"><label>Nome da ação/evento</label><input type="text" id="a-titulo" required placeholder="Ex: Lançamento de matrículas"></div>
+      </div>
+      <div class="field"><label>Detalhes de como ocorreu</label><textarea id="a-detalhes" placeholder="Descreva como foi a ação..."></textarea></div>
+      <div class="field"><label>Fotos</label><div class="photo-grid" id="a-fotos"></div></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-danger" id="btn-delete-acao" hidden>Excluir ação</button>
+        <div style="flex:1"></div>
+        <button type="button" class="btn-secondary" id="btn-cancel-acao">Cancelar</button>
+        <button type="submit" class="btn-primary" style="width:auto;">Salvar ação</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -146,7 +171,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 /* ============ CONFIGURAÇÃO ============ */
-// apiKey: "AIzaSyASApoPVmsNyTmcNSrxlTZ5yU7WGN7lR3o" authDomain: "gestor-ead.firebaseapp.com" projectId: "gestor-ead" storageBucket: "gestor-ead.firebasestorage.app" messagingSenderId: "690843825301" appId: "1:690843825301:web:0c389349ba9eed8582179c"
+// Cole aqui o MESMO firebaseConfig usado no index.html
 const firebaseConfig = {
   apiKey: "AIzaSyASApoPVmsNyTmcNSrxlTZ5yU7WGN7lR3o",
   authDomain: "gestor-ead.firebaseapp.com",
@@ -189,8 +214,6 @@ function compressImage(file, maxDim = 1000, quality = 0.72){
   });
 }
 
-const SECTIONS = ['infra','eventos','ocorrencias','observacoes'];
-const SECTION_LABELS = { infra:'Infraestrutura', eventos:'Eventos do mês', ocorrencias:'Ocorrências', observacoes:'Observações gerais / Próximos passos' };
 const MES_NOMES = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 let currentUser = null;
@@ -198,9 +221,12 @@ let polos = [];
 let selectedPoloId = null;
 let reports = [];
 let editingReportId = null;
-let sectionPhotos = { infra:[], eventos:[], ocorrencias:[], observacoes:[] }; // {url, path, legenda, file?}
+let acoes = [];
+let editingAcaoId = null;
+let acaoFotos = []; // {dataUrl, legenda}
 
 function escapeHtml(str){ const d=document.createElement('div'); d.textContent=str||''; return d.innerHTML; }
+function formatDateBR(dateStr){ if(!dateStr) return ''; const [y,m,d]=dateStr.split('-'); return `${d}/${m}/${y}`; }
 
 document.getElementById('btn-back').addEventListener('click', () => window.location.href = 'index.html');
 
@@ -235,7 +261,7 @@ document.getElementById('select-polo').addEventListener('change', async e => {
   newReportForm();
 });
 
-/* ================= HISTÓRICO / CRUD ================= */
+/* ================= HISTÓRICO / RELATÓRIO (CONTAINER DO MÊS) ================= */
 async function loadReports(){
   if(!selectedPoloId){ reports = []; return; }
   const snap = await getDocs(collection(db, 'polos', selectedPoloId, 'relatorios'));
@@ -252,18 +278,21 @@ function renderHistory(){
     el.addEventListener('click', async () => { await loadReportIntoForm(el.dataset.id); });
   });
 }
+function setMesAnoDisabled(disabled){
+  document.getElementById('f-mes').disabled = disabled;
+  document.getElementById('f-ano').disabled = disabled;
+}
 function newReportForm(){
   editingReportId = null;
+  acoes = [];
   const now = new Date();
   document.getElementById('f-mes').value = String(now.getMonth()+1);
   document.getElementById('f-ano').value = String(now.getFullYear());
-  SECTIONS.forEach(s => {
-    document.getElementById('sec-'+s+'-texto').value = '';
-    sectionPhotos[s] = [];
-    renderPhotoGrid(s);
-  });
+  document.getElementById('observacoes-texto').value = '';
+  setMesAnoDisabled(false);
   document.getElementById('btn-delete-report').style.display = 'none';
   document.getElementById('save-status').textContent = '';
+  renderAcoesList();
   renderHistory();
 }
 async function loadReportIntoForm(id){
@@ -272,98 +301,46 @@ async function loadReportIntoForm(id){
   editingReportId = id;
   document.getElementById('f-mes').value = String(r.mes);
   document.getElementById('f-ano').value = String(r.ano);
-  SECTIONS.forEach(s => {
-    const sec = (r.secoes || {})[s] || { texto:'' };
-    document.getElementById('sec-'+s+'-texto').value = sec.texto || '';
-    sectionPhotos[s] = [];
-  });
-  const fotosSnap = await getDocs(collection(db, 'polos', selectedPoloId, 'relatorios', id, 'fotos'));
-  fotosSnap.docs.forEach(d => {
-    const f = d.data();
-    if(sectionPhotos[f.secao]) sectionPhotos[f.secao].push({ id: d.id, dataUrl: f.dataUrl, legenda: f.legenda || '' });
-  });
-  SECTIONS.forEach(renderPhotoGrid);
+  document.getElementById('observacoes-texto').value = r.observacoesGerais || '';
+  setMesAnoDisabled(true);
   document.getElementById('btn-delete-report').style.display = 'inline-block';
   document.getElementById('save-status').textContent = '';
+  await loadAcoes(id);
   renderHistory();
 }
 document.getElementById('btn-new-report').addEventListener('click', newReportForm);
 
-/* ================= FOTOS ================= */
-function renderPhotoGrid(section){
-  const grid = document.getElementById('sec-'+section+'-fotos');
-  grid.innerHTML = '';
-  sectionPhotos[section].forEach((photo, idx) => {
-    const item = document.createElement('div');
-    item.className = 'photo-item';
-    item.innerHTML = `
-      <img src="${photo.dataUrl}">
-      <input type="text" placeholder="Legenda" value="${escapeHtml(photo.legenda||'')}">
-      <span class="rm">Remover</span>
-    `;
-    item.querySelector('input').addEventListener('input', e => { photo.legenda = e.target.value; });
-    item.querySelector('.rm').addEventListener('click', () => {
-      sectionPhotos[section].splice(idx,1);
-      renderPhotoGrid(section);
-    });
-    grid.appendChild(item);
+async function ensureReportContainer(){
+  if(editingReportId) return editingReportId;
+  const mes = Number(document.getElementById('f-mes').value);
+  const ano = Number(document.getElementById('f-ano').value);
+  const existente = reports.find(r => r.mes === mes && r.ano === ano);
+  if(existente){ editingReportId = existente.id; setMesAnoDisabled(true); return editingReportId; }
+  const docRef = await addDoc(collection(db, 'polos', selectedPoloId, 'relatorios'), {
+    mes, ano, observacoesGerais: '', criadoEm: new Date().toISOString(),
   });
-  const addBtn = document.createElement('div');
-  addBtn.className = 'add-photo-btn';
-  addBtn.textContent = '+ Adicionar foto';
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
-  input.addEventListener('change', async () => {
-    const files = Array.from(input.files);
-    for(const file of files){
-      try{
-        const dataUrl = await compressImage(file);
-        sectionPhotos[section].push({ dataUrl, legenda:'' });
-        renderPhotoGrid(section);
-      }catch(err){ console.error('Erro ao processar imagem', err); }
-    }
-  });
-  addBtn.addEventListener('click', () => input.click());
-  grid.appendChild(addBtn);
-  grid.appendChild(input);
+  editingReportId = docRef.id;
+  setMesAnoDisabled(true);
+  await loadReports();
+  document.getElementById('btn-delete-report').style.display = 'inline-block';
+  renderHistory();
+  return editingReportId;
 }
-SECTIONS.forEach(renderPhotoGrid);
 
-/* ================= SALVAR ================= */
 document.getElementById('btn-save').addEventListener('click', async () => {
   const statusEl = document.getElementById('save-status');
   statusEl.textContent = 'Salvando...';
   try{
+    const reportId = await ensureReportContainer();
     const mes = Number(document.getElementById('f-mes').value);
     const ano = Number(document.getElementById('f-ano').value);
-    const secoes = {};
-    SECTIONS.forEach(s => {
-      secoes[s] = { texto: document.getElementById('sec-'+s+'-texto').value.trim() };
+    await updateDoc(doc(db, 'polos', selectedPoloId, 'relatorios', reportId), {
+      mes, ano,
+      observacoesGerais: document.getElementById('observacoes-texto').value.trim(),
+      atualizadoEm: new Date().toISOString(),
     });
-    const data = { mes, ano, secoes, atualizadoEm: new Date().toISOString() };
-
-    let reportId = editingReportId;
-    if(reportId){
-      await updateDoc(doc(db, 'polos', selectedPoloId, 'relatorios', reportId), data);
-      // remove fotos antigas antes de regravar (evita duplicar)
-      const fotosSnapAntigas = await getDocs(collection(db, 'polos', selectedPoloId, 'relatorios', reportId, 'fotos'));
-      for(const d of fotosSnapAntigas.docs){ await deleteDoc(d.ref); }
-    } else {
-      const docRef = await addDoc(collection(db, 'polos', selectedPoloId, 'relatorios'), data);
-      reportId = docRef.id;
-    }
-
-    for(const s of SECTIONS){
-      for(const photo of sectionPhotos[s]){
-        await addDoc(collection(db, 'polos', selectedPoloId, 'relatorios', reportId, 'fotos'), {
-          secao: s, legenda: photo.legenda || '', dataUrl: photo.dataUrl,
-        });
-      }
-    }
-
-    editingReportId = reportId;
     await loadReports();
-    await loadReportIntoForm(reportId);
+    renderHistory();
     statusEl.textContent = 'Salvo ✓';
   }catch(err){
     console.error(err);
@@ -372,10 +349,137 @@ document.getElementById('btn-save').addEventListener('click', async () => {
 });
 
 document.getElementById('btn-delete-report').addEventListener('click', async () => {
-  if(!editingReportId || !confirm('Excluir este relatório?')) return;
+  if(!editingReportId || !confirm('Excluir este relatório e todas as ações registradas nele?')) return;
+  const acoesSnap = await getDocs(collection(db, 'polos', selectedPoloId, 'relatorios', editingReportId, 'acoes'));
+  for(const d of acoesSnap.docs){ await deleteDoc(d.ref); }
   await deleteDoc(doc(db, 'polos', selectedPoloId, 'relatorios', editingReportId));
   await loadReports();
   newReportForm();
+});
+
+/* ================= AÇÕES ================= */
+async function loadAcoes(reportId){
+  const snap = await getDocs(collection(db, 'polos', selectedPoloId, 'relatorios', reportId, 'acoes'));
+  acoes = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a,b) => (a.data || '').localeCompare(b.data || '') || (a.criadoEm || '').localeCompare(b.criadoEm || ''));
+  renderAcoesList();
+}
+function renderAcoesList(){
+  const container = document.getElementById('acoes-list');
+  if(acoes.length === 0){
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12.5px;">Nenhuma ação registrada ainda.</div>';
+    return;
+  }
+  const grupos = {};
+  acoes.forEach(a => { (grupos[a.data] = grupos[a.data] || []).push(a); });
+  const datas = Object.keys(grupos).sort();
+  container.innerHTML = datas.map(data => `
+    <div class="date-group">
+      <div class="date-label">${formatDateBR(data)}</div>
+      ${grupos[data].map(a => `
+        <div class="acao-card" data-id="${a.id}">
+          <div class="acao-titulo">${escapeHtml(a.titulo)}</div>
+          ${a.detalhes ? `<div class="acao-detalhes">${escapeHtml(a.detalhes)}</div>` : ''}
+          ${a.fotos && a.fotos.length ? `<div class="acao-thumbs">${a.fotos.map(f => `<img src="${f.dataUrl}">`).join('')}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+  container.querySelectorAll('.acao-card').forEach(card => {
+    card.addEventListener('click', () => openAcaoModal(card.dataset.id));
+  });
+}
+
+function renderAcaoFotoGrid(){
+  const grid = document.getElementById('a-fotos');
+  grid.innerHTML = '';
+  acaoFotos.forEach((photo, idx) => {
+    const item = document.createElement('div');
+    item.className = 'photo-item';
+    item.innerHTML = `
+      <img src="${photo.dataUrl}">
+      <input type="text" placeholder="Legenda" value="${escapeHtml(photo.legenda||'')}">
+      <span class="rm">Remover</span>
+    `;
+    item.querySelector('input').addEventListener('input', e => { photo.legenda = e.target.value; });
+    item.querySelector('.rm').addEventListener('click', () => { acaoFotos.splice(idx,1); renderAcaoFotoGrid(); });
+    grid.appendChild(item);
+  });
+  const addBtn = document.createElement('div');
+  addBtn.className = 'add-photo-btn';
+  addBtn.textContent = '+ Adicionar foto';
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+  input.addEventListener('change', async () => {
+    for(const file of Array.from(input.files)){
+      try{
+        const dataUrl = await compressImage(file);
+        acaoFotos.push({ dataUrl, legenda:'' });
+        renderAcaoFotoGrid();
+      }catch(err){ console.error('Erro ao processar imagem', err); }
+    }
+  });
+  addBtn.addEventListener('click', () => input.click());
+  grid.appendChild(addBtn);
+  grid.appendChild(input);
+}
+
+function openAcaoModal(id=null){
+  editingAcaoId = id;
+  document.getElementById('acao-form').reset();
+  const btnDel = document.getElementById('btn-delete-acao');
+  if(id){
+    const a = acoes.find(x => x.id === id);
+    document.getElementById('acao-modal-title').textContent = 'Editar ação';
+    document.getElementById('a-data').value = a.data;
+    document.getElementById('a-titulo').value = a.titulo;
+    document.getElementById('a-detalhes').value = a.detalhes || '';
+    acaoFotos = (a.fotos || []).map(f => ({...f}));
+    btnDel.hidden = false;
+  } else {
+    document.getElementById('acao-modal-title').textContent = 'Nova ação';
+    document.getElementById('a-data').value = new Date().toISOString().slice(0,10);
+    acaoFotos = [];
+    btnDel.hidden = true;
+  }
+  renderAcaoFotoGrid();
+  document.getElementById('modal-acao').hidden = false;
+}
+document.getElementById('btn-new-acao').addEventListener('click', () => openAcaoModal());
+document.getElementById('btn-cancel-acao').addEventListener('click', () => document.getElementById('modal-acao').hidden = true);
+
+document.getElementById('acao-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = {
+    data: document.getElementById('a-data').value,
+    titulo: document.getElementById('a-titulo').value.trim(),
+    detalhes: document.getElementById('a-detalhes').value.trim(),
+    fotos: acaoFotos,
+  };
+  if(!data.data || !data.titulo) return;
+  const statusEl = document.getElementById('save-status');
+  statusEl.textContent = 'Salvando ação...';
+  try{
+    const reportId = await ensureReportContainer();
+    if(editingAcaoId){
+      await updateDoc(doc(db, 'polos', selectedPoloId, 'relatorios', reportId, 'acoes', editingAcaoId), data);
+    } else {
+      data.criadoEm = new Date().toISOString();
+      await addDoc(collection(db, 'polos', selectedPoloId, 'relatorios', reportId, 'acoes'), data);
+    }
+    document.getElementById('modal-acao').hidden = true;
+    await loadAcoes(reportId);
+    statusEl.textContent = 'Ação salva ✓';
+  }catch(err){
+    console.error(err);
+    statusEl.textContent = 'Erro ao salvar ação: ' + err.message;
+  }
+});
+document.getElementById('btn-delete-acao').addEventListener('click', async () => {
+  if(!editingAcaoId || !editingReportId || !confirm('Excluir esta ação?')) return;
+  await deleteDoc(doc(db, 'polos', selectedPoloId, 'relatorios', editingReportId, 'acoes', editingAcaoId));
+  document.getElementById('modal-acao').hidden = true;
+  await loadAcoes(editingReportId);
 });
 
 /* ================= PDF ================= */
@@ -408,39 +512,59 @@ document.getElementById('btn-pdf').addEventListener('click', async () => {
       if(y + needed > pageH - margin){ docPdf.addPage(); y = margin; }
     }
 
-    for(const s of SECTIONS){
-      const texto = document.getElementById('sec-'+s+'-texto').value.trim();
-      checkPageBreak(16);
-      docPdf.setFont('helvetica','bold'); docPdf.setFontSize(13);
-      docPdf.text(SECTION_LABELS[s], margin, y); y += 7;
-      docPdf.setFont('helvetica','normal'); docPdf.setFontSize(10.5);
-      const lines = docPdf.splitTextToSize(texto || '(sem observações)', pageW - margin*2);
-      lines.forEach(line => {
-        checkPageBreak(6);
-        docPdf.text(line, margin, y); y += 5.5;
-      });
-      y += 3;
+    const grupos = {};
+    acoes.forEach(a => { (grupos[a.data] = grupos[a.data] || []).push(a); });
+    const datas = Object.keys(grupos).sort();
 
-      let x = margin;
-      const photoW = 55, photoGap = 6;
-      for(const photo of sectionPhotos[s]){
-        const dataUrl = photo.dataUrl;
-        const { w, h } = await getImageSize(dataUrl);
-        const photoH = photoW * (h/w);
-        checkPageBreak(photoH + 8);
-        if(x + photoW > pageW - margin){ x = margin; y += photoH + 8; checkPageBreak(photoH+8); }
-        docPdf.addImage(dataUrl, 'JPEG', x, y, photoW, photoH);
-        if(photo.legenda){
-          docPdf.setFontSize(8.5);
-          docPdf.text(docPdf.splitTextToSize(photo.legenda, photoW), x, y + photoH + 4);
+    if(datas.length === 0){
+      docPdf.setFont('helvetica','italic'); docPdf.setFontSize(11);
+      docPdf.text('Nenhuma ação registrada neste mês.', margin, y); y += 8;
+    }
+
+    for(const data of datas){
+      checkPageBreak(10);
+      docPdf.setFont('helvetica','bold'); docPdf.setFontSize(12.5);
+      docPdf.setTextColor(214,167,86);
+      docPdf.text(formatDateBR(data), margin, y); y += 7;
+      docPdf.setTextColor(20,20,20);
+
+      for(const a of grupos[data]){
+        checkPageBreak(10);
+        docPdf.setFont('helvetica','bold'); docPdf.setFontSize(11.5);
+        docPdf.text(a.titulo, margin, y); y += 6;
+        if(a.detalhes){
+          docPdf.setFont('helvetica','normal'); docPdf.setFontSize(10);
+          const lines = docPdf.splitTextToSize(a.detalhes, pageW - margin*2);
+          lines.forEach(line => { checkPageBreak(6); docPdf.text(line, margin, y); y += 5.2; });
         }
-        x += photoW + photoGap;
+        y += 2;
+
+        let x = margin;
+        const photoW = 55, photoGap = 6;
+        for(const photo of (a.fotos || [])){
+          const { w, h } = await getImageSize(photo.dataUrl);
+          const photoH = photoW * (h/w);
+          checkPageBreak(photoH + 8);
+          if(x + photoW > pageW - margin){ x = margin; y += photoH + 8; checkPageBreak(photoH+8); }
+          docPdf.addImage(photo.dataUrl, 'JPEG', x, y, photoW, photoH);
+          if(photo.legenda){
+            docPdf.setFontSize(8.5);
+            docPdf.text(docPdf.splitTextToSize(photo.legenda, photoW), x, y + photoH + 4);
+          }
+          x += photoW + photoGap;
+        }
+        if((a.fotos || []).length){ y += (photoW * 0.75) + 10; }
+        y += 5;
       }
-      if(sectionPhotos[s].length){
-        const lastRowH = photoW * 0.75; // aproximação de altura da última linha
-        y += lastRowH + 10;
-      }
-      y += 4;
+    }
+
+    const obs = document.getElementById('observacoes-texto').value.trim();
+    if(obs){
+      checkPageBreak(14);
+      docPdf.setFont('helvetica','bold'); docPdf.setFontSize(13);
+      docPdf.text('Observações gerais / Próximos passos', margin, y); y += 7;
+      docPdf.setFont('helvetica','normal'); docPdf.setFontSize(10.5);
+      docPdf.splitTextToSize(obs, pageW - margin*2).forEach(line => { checkPageBreak(6); docPdf.text(line, margin, y); y += 5.5; });
     }
 
     docPdf.save(`relatorio-${poloNome.replace(/\s+/g,'-')}-${mes}-${ano}.pdf`);

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plano de Ações do Polo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#171B26; --panel:#1F2433; --panel-alt:#262C3F; --border:#333B52;
+    --text:#ECE9E1; --text-muted:#9098AF;
+    --gold:#D6A756; --teal:#4FA98C; --red:#C1666B; --blue:#6C8EBF;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;}
+  h1,h2,h3{font-family:'Fraunces',serif;font-weight:500;margin:0;}
+  #config-warning{background:rgba(193,102,107,0.12);border:1px solid var(--red);color:var(--red);padding:14px;border-radius:10px;font-size:12.5px;max-width:420px;margin:20px auto;text-align:center;}
+
+  .topbar{display:flex;align-items:center;gap:14px;padding:16px 28px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .topbar h1{font-size:20px;}
+  #btn-back{background:none;border:1px solid var(--border);color:var(--text-muted);padding:7px 14px;border-radius:8px;font-size:12.5px;cursor:pointer;}
+  .spacer{flex:1;}
+  #select-polo{background:var(--panel);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:7px;font-size:13px;font-weight:600;}
+  .small-btn{background:none;border:1px solid var(--border);color:var(--text-muted);padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;}
+  .btn-primary{background:var(--gold);color:#1B1B14;border:none;padding:9px 18px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;}
+  .btn-secondary{background:none;border:1px solid var(--border);color:var(--text-muted);padding:9px 16px;border-radius:8px;font-size:13px;cursor:pointer;}
+  .btn-danger{background:none;border:none;color:var(--red);font-size:12.5px;cursor:pointer;text-decoration:underline;}
+
+  .tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:3px;flex-wrap:wrap;}
+  .tabs button{background:none;border:none;color:var(--text-muted);padding:7px 12px;border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer;}
+  .tabs button.active{background:var(--panel-alt);color:var(--text);}
+
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;padding:20px 28px;}
+  .metric{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+  .metric .value{font-family:'Fraunces',serif;font-size:26px;font-weight:500;}
+  .metric .label{color:var(--text-muted);font-size:12.5px;margin-top:4px;}
+  .metric.warn .value{color:var(--red);}
+
+  .frentes-box{padding:0 28px 20px 28px;display:flex;gap:14px;flex-wrap:wrap;}
+  .frente-card{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+  .frente-card .fc-nome{font-size:12.5px;font-weight:600;margin-bottom:6px;}
+  .frente-card .fc-bar{height:6px;background:var(--panel-alt);border-radius:4px;overflow:hidden;margin-top:6px;}
+  .frente-card .fc-fill{height:100%;background:var(--teal);}
+  .frente-card .fc-info{font-size:11px;color:var(--text-muted);margin-top:4px;}
+
+  .list-area{padding:0 28px 28px 28px;display:flex;flex-direction:column;gap:10px;}
+  .acao-row{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--blue);border-radius:10px;padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;}
+  .acao-row:hover{border-color:var(--gold);}
+  .acao-row.status-concluida{border-left-color:var(--teal);}
+  .acao-row.status-atrasada{border-left-color:var(--red);}
+  .acao-row.status-cancelada{border-left-color:var(--text-muted); opacity:0.65;}
+  .acao-row .ar-main{flex:1;min-width:200px;}
+  .acao-row .ar-titulo{font-size:13.5px;font-weight:600;}
+  .acao-row .ar-meta{font-size:11.5px;color:var(--text-muted);margin-top:3px;}
+  .status-badge{font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;background:var(--panel-alt);color:var(--text-muted);}
+  .status-badge.status-concluida{color:var(--teal);}
+  .status-badge.status-atrasada{color:var(--red);}
+  .status-badge.status-cancelada{color:var(--text-muted);}
+  .status-badge.status-em-andamento{color:var(--gold);}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(10,12,18,0.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal-overlay[hidden]{display:none;}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:14px;width:100%;max-width:460px;padding:26px;max-height:88vh;overflow-y:auto;}
+  .modal h2{font-size:19px;margin-bottom:14px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px;}
+  .field input,.field select,.field textarea{width:100%;background:var(--panel-alt);border:1px solid var(--border);color:var(--text);padding:9px 11px;border-radius:7px;font-family:'Inter';font-size:13.5px;}
+  .field textarea{resize:vertical;min-height:60px;}
+  .field-row{display:flex;gap:10px;}
+  .field-row .field{flex:1;}
+  .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:10px;}
+  #loading-screen{padding:60px;text-align:center;color:var(--text-muted);}
+</style>
+</head>
+<body>
+
+<div id="config-warning" style="display:none;">
+  ⚠️ Configuração pendente: cole o mesmo firebaseConfig usado no index.html na seção CONFIGURAÇÃO deste arquivo.
+</div>
+
+<div id="loading-screen">Carregando...</div>
+
+<div id="app" style="display:none;">
+  <div class="topbar">
+    <button id="btn-back">← Voltar</button>
+    <h1>Plano de Ações</h1>
+    <div class="spacer"></div>
+    <label style="font-size:11.5px;color:var(--text-muted);">POLO</label>
+    <select id="select-polo"></select>
+  </div>
+
+  <div class="topbar">
+    <div class="tabs" id="tabs-frente">
+      <button data-filter="todos" class="active">Todas as frentes</button>
+      <button data-filter="Captação de novos alunos">Captação</button>
+      <button data-filter="Rematrícula e retenção">Rematrícula</button>
+      <button data-filter="Relacionamento com igrejas e escolas">Igrejas/escolas</button>
+      <button data-filter="Rotina de gestão e acompanhamento do polo">Rotina de gestão</button>
+    </div>
+    <div class="tabs" id="tabs-status">
+      <button data-filter="todos" class="active">Todos status</button>
+      <button data-filter="Não iniciada">Não iniciada</button>
+      <button data-filter="Em andamento">Em andamento</button>
+      <button data-filter="Concluída">Concluída</button>
+      <button data-filter="Atrasada">Atrasada</button>
+      <button data-filter="Cancelada">Cancelada</button>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn-primary" id="btn-new-acao">+ Nova ação</button>
+  </div>
+
+  <div class="metrics" id="plano-metrics"></div>
+  <div class="frentes-box" id="frentes-box"></div>
+  <div class="list-area" id="acoes-list"></div>
+</div>
+
+<div class="modal-overlay" id="modal-acao" hidden>
+  <div class="modal">
+    <h2 id="acao-modal-title">Nova ação</h2>
+    <form id="acao-form">
+      <div class="field"><label>Frente de atuação</label>
+        <select id="p-frente">
+          <option>Captação de novos alunos</option>
+          <option>Rematrícula e retenção</option>
+          <option>Relacionamento com igrejas e escolas</option>
+          <option>Rotina de gestão e acompanhamento do polo</option>
+        </select>
+      </div>
+      <div class="field"><label>Ação</label><input type="text" id="p-acao" required placeholder="Ex: Visitar 3 igrejas do distrito"></div>
+      <div class="field-row">
+        <div class="field"><label>Responsável</label><input type="text" id="p-responsavel"></div>
+        <div class="field"><label>Prazo</label><input type="date" id="p-prazo"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Indicador</label><input type="text" id="p-indicador" placeholder="Ex: nº de visitas"></div>
+        <div class="field"><label>Meta</label><input type="number" id="p-meta" step="0.01"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Resultado</label><input type="number" id="p-resultado" step="0.01"></div>
+        <div class="field"><label>Status</label>
+          <select id="p-status">
+            <option>Não iniciada</option><option>Em andamento</option><option>Concluída</option>
+            <option>Atrasada</option><option>Cancelada</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Observações</label><textarea id="p-observacoes"></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-danger" id="btn-delete-acao" hidden>Excluir</button>
+        <div style="flex:1"></div>
+        <button type="button" class="btn-secondary" id="btn-cancel-acao">Cancelar</button>
+        <button type="submit" class="btn-primary">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import {
+  getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query, where
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+/* ============ CONFIGURAÇÃO ============ */
+// Cole aqui o MESMO firebaseConfig usado no index.html
+const firebaseConfig = {
+  apiKey: "AIzaSyASApoPVmsNyTmcNSrxlTZ5yU7WGN7lR3o",
+  authDomain: "gestor-ead.firebaseapp.com",
+  projectId: "gestor-ead",
+  storageBucket: "gestor-ead.firebasestorage.app",
+  messagingSenderId: "690843825301",
+  appId: "1:690843825301:web:0c389349ba9eed8582179c",
+};
+if(firebaseConfig.apiKey === "COLE_AQUI"){
+  document.getElementById('config-warning').style.display = 'block';
+}
+
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+const FRENTES = [
+  'Captação de novos alunos','Rematrícula e retenção',
+  'Relacionamento com igrejas e escolas','Rotina de gestão e acompanhamento do polo',
+];
+
+let currentUser = null;
+let polos = [];
+let selectedPoloId = null;
+let planoAcoes = [];
+let editingAcaoId = null;
+let filtroFrente = 'todos';
+let filtroStatus = 'todos';
+
+function escapeHtml(str){ const d=document.createElement('div'); d.textContent=str||''; return d.innerHTML; }
+function statusClass(status){ return 'status-' + (status||'').toLowerCase().replace(/[^a-z]+/g,'-').replace(/^-|-$/g,''); }
+function formatDateBR(dateStr){ if(!dateStr) return ''; const [y,m,d]=dateStr.split('-'); return `${d}/${m}/${y}`; }
+
+document.getElementById('btn-back').addEventListener('click', () => window.location.href = 'index.html');
+
+onAuthStateChanged(auth, async (user) => {
+  if(!user){ window.location.href = 'index.html'; return; }
+  currentUser = user;
+  await loadPolos();
+  renderPoloSelect();
+  await loadPlanoAcoes();
+  render();
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+});
+
+async function loadPolos(){
+  const q = query(collection(db, 'polos'), where('gestores', 'array-contains', currentUser.uid));
+  const snap = await getDocs(q);
+  polos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const saved = localStorage.getItem('polo-selecionado');
+  selectedPoloId = polos.find(p => p.id === saved) ? saved : (polos[0] ? polos[0].id : null);
+}
+function renderPoloSelect(){
+  document.getElementById('select-polo').innerHTML = polos.map(p =>
+    `<option value="${p.id}" ${p.id===selectedPoloId?'selected':''}>${escapeHtml(p.nome)}</option>`).join('');
+}
+document.getElementById('select-polo').addEventListener('change', async e => {
+  selectedPoloId = e.target.value;
+  localStorage.setItem('polo-selecionado', selectedPoloId);
+  await loadPlanoAcoes();
+  render();
+});
+
+async function loadPlanoAcoes(){
+  if(!selectedPoloId){ planoAcoes = []; return; }
+  const snap = await getDocs(collection(db, 'polos', selectedPoloId, 'planoAcoes'));
+  planoAcoes = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a,b) => (a.prazo || '').localeCompare(b.prazo || ''));
+}
+
+function getFiltered(){
+  return planoAcoes.filter(a => {
+    if(filtroFrente !== 'todos' && a.frente !== filtroFrente) return false;
+    if(filtroStatus !== 'todos' && a.status !== filtroStatus) return false;
+    return true;
+  });
+}
+
+function render(){
+  const all = getFiltered();
+  const total = all.length;
+  const concluidas = all.filter(a => a.status === 'Concluída').length;
+  const atrasadas = all.filter(a => a.status === 'Atrasada').length;
+  const pct = total > 0 ? Math.round((concluidas/total)*100) : 0;
+  document.getElementById('plano-metrics').innerHTML = `
+    <div class="metric"><div class="value">${total}</div><div class="label">Ações no filtro atual</div></div>
+    <div class="metric"><div class="value">${concluidas}</div><div class="label">Concluídas</div></div>
+    <div class="metric ${atrasadas>0?'warn':''}"><div class="value">${atrasadas}</div><div class="label">Atrasadas</div></div>
+    <div class="metric"><div class="value">${pct}%</div><div class="label">% concluído</div></div>
+  `;
+
+  document.getElementById('frentes-box').innerHTML = FRENTES.map(frente => {
+    const itens = planoAcoes.filter(a => a.frente === frente);
+    const conc = itens.filter(a => a.status === 'Concluída').length;
+    const p = itens.length > 0 ? Math.round((conc/itens.length)*100) : 0;
+    return `<div class="frente-card">
+      <div class="fc-nome">${escapeHtml(frente)}</div>
+      <div class="fc-info">${conc}/${itens.length} concluídas</div>
+      <div class="fc-bar"><div class="fc-fill" style="width:${p}%"></div></div>
+    </div>`;
+  }).join('');
+
+  const list = document.getElementById('acoes-list');
+  if(all.length === 0){
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Nenhuma ação neste filtro.</div>';
+    return;
+  }
+  list.innerHTML = all.map(a => `
+    <div class="acao-row ${statusClass(a.status)}" data-id="${a.id}">
+      <div class="ar-main">
+        <div class="ar-titulo">${escapeHtml(a.acao)}</div>
+        <div class="ar-meta">${escapeHtml(a.frente)} ${a.responsavel ? '· ' + escapeHtml(a.responsavel) : ''} ${a.prazo ? '· prazo ' + formatDateBR(a.prazo) : ''} ${a.indicador ? '· ' + escapeHtml(a.indicador) + (a.meta!=null?': '+a.resultado+'/'+a.meta:'') : ''}</div>
+      </div>
+      <span class="status-badge ${statusClass(a.status)}">${escapeHtml(a.status||'Não iniciada')}</span>
+    </div>
+  `).join('');
+  list.querySelectorAll('.acao-row').forEach(row => {
+    row.addEventListener('click', () => openAcaoModal(row.dataset.id));
+  });
+}
+
+document.getElementById('tabs-frente').addEventListener('click', e => {
+  if(e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#tabs-frente button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  filtroFrente = e.target.dataset.filter;
+  render();
+});
+document.getElementById('tabs-status').addEventListener('click', e => {
+  if(e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#tabs-status button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  filtroStatus = e.target.dataset.filter;
+  render();
+});
+
+function openAcaoModal(id=null){
+  editingAcaoId = id;
+  document.getElementById('acao-form').reset();
+  const btnDel = document.getElementById('btn-delete-acao');
+  if(id){
+    const a = planoAcoes.find(x => x.id === id);
+    document.getElementById('acao-modal-title').textContent = 'Editar ação';
+    document.getElementById('p-frente').value = a.frente;
+    document.getElementById('p-acao').value = a.acao;
+    document.getElementById('p-responsavel').value = a.responsavel || '';
+    document.getElementById('p-prazo').value = a.prazo || '';
+    document.getElementById('p-indicador').value = a.indicador || '';
+    document.getElementById('p-meta').value = a.meta ?? '';
+    document.getElementById('p-resultado').value = a.resultado ?? '';
+    document.getElementById('p-status').value = a.status || 'Não iniciada';
+    document.getElementById('p-observacoes').value = a.observacoes || '';
+    btnDel.hidden = false;
+  } else {
+    document.getElementById('acao-modal-title').textContent = 'Nova ação';
+    document.getElementById('p-status').value = 'Não iniciada';
+    btnDel.hidden = true;
+  }
+  document.getElementById('modal-acao').hidden = false;
+}
+document.getElementById('btn-new-acao').addEventListener('click', () => openAcaoModal());
+document.getElementById('btn-cancel-acao').addEventListener('click', () => document.getElementById('modal-acao').hidden = true);
+
+document.getElementById('acao-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = {
+    frente: document.getElementById('p-frente').value,
+    acao: document.getElementById('p-acao').value.trim(),
+    responsavel: document.getElementById('p-responsavel').value.trim(),
+    prazo: document.getElementById('p-prazo').value || null,
+    indicador: document.getElementById('p-indicador').value.trim(),
+    meta: document.getElementById('p-meta').value !== '' ? Number(document.getElementById('p-meta').value) : null,
+    resultado: document.getElementById('p-resultado').value !== '' ? Number(document.getElementById('p-resultado').value) : null,
+    status: document.getElementById('p-status').value,
+    observacoes: document.getElementById('p-observacoes').value.trim(),
+  };
+  if(!data.acao) return;
+  if(editingAcaoId){
+    await updateDoc(doc(db, 'polos', selectedPoloId, 'planoAcoes', editingAcaoId), data);
+  } else {
+    data.criadoEm = new Date().toISOString();
+    await addDoc(collection(db, 'polos', selectedPoloId, 'planoAcoes'), data);
+  }
+  document.getElementById('modal-acao').hidden = true;
+  await loadPlanoAcoes();
+  render();
+});
+document.getElementById('btn-delete-acao').addEventListener('click', async () => {
+  if(!editingAcaoId || !confirm('Excluir esta ação do plano?')) return;
+  await deleteDoc(doc(db, 'polos', selectedPoloId, 'planoAcoes', editingAcaoId));
+  document.getElementById('modal-acao').hidden = true;
+  await loadPlanoAcoes();
+  render();
+});
+</script>
+</body>
+</html>

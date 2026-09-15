@@ -112,6 +112,12 @@
   .bulk-item .bulk-fields{flex:1;display:flex;flex-direction:column;gap:6px;}
   .bulk-item .bulk-fields input{width:100%;}
   .bulk-item .bulk-notes-preview{font-size:11px;color:var(--text-muted);max-height:36px;overflow:hidden;}
+  .timeline-item{font-size:12px;padding:6px 0;border-bottom:1px solid var(--border);}
+  .timeline-item .t-texto{color:var(--text);}
+  .timeline-item .t-data{color:var(--text-muted);font-size:10.5px;margin-top:2px;}
+  .meta-progress{height:6px;background:var(--panel-alt);border-radius:4px;margin-top:8px;overflow:hidden;}
+  .meta-progress-fill{height:100%;background:var(--teal);}
+  .meta-edit-btn{background:none;border:1px solid var(--border);color:var(--text-muted);padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer;margin-left:6px;}
 </style>
 </head>
 <body>
@@ -137,6 +143,7 @@
     <label>POLO ATIVO</label>
     <select id="select-polo"></select>
     <button class="small-btn" id="btn-manage-polos">Gerenciar polos</button>
+    <button class="small-btn" id="btn-notify">🔔 Lembretes</button>
     <div class="spacer"></div>
     <span id="user-email"></span>
     <button class="small-btn" id="btn-logout">Sair</button>
@@ -146,7 +153,10 @@
     <div class="maintabs">
       <button data-view="vendas" class="active">Vendas</button>
       <button data-view="agenda">Agenda</button>
+      <button data-view="conversao">Conversão</button>
+      <button data-view="roteiros">Roteiros</button>
       <button id="btn-go-relatorios">Relatórios</button>
+      <button id="btn-go-plano">Plano de Ações</button>
     </div>
   </div>
 
@@ -159,6 +169,7 @@
       </div>
       <input id="search" type="text" placeholder="Buscar por nome ou contato...">
       <div class="spacer"></div>
+      <button class="small-btn" id="btn-export-leads">⬇️ Exportar CSV</button>
       <button id="btn-whatsapp">💬 Da conversa do WhatsApp</button>
       <button id="btn-whatsapp-bulk">📥 Importar vários</button>
       <button id="btn-new-lead">+ Novo lead</button>
@@ -176,9 +187,32 @@
         <button data-filter="sala">Sala</button>
       </div>
       <div class="spacer"></div>
+      <button class="small-btn" id="btn-export-eventos">⬇️ Exportar CSV</button>
       <button id="btn-new-evento">+ Novo evento</button>
     </div>
     <div class="agenda-list" id="agenda-list"></div>
+  </div>
+
+  <div class="view" id="view-conversao">
+    <div class="metrics" id="conversao-metrics" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));"></div>
+    <div style="padding:0 28px 28px 28px;display:flex;gap:20px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:320px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;">
+        <h3 style="font-size:15px;margin-bottom:14px;">Funil de conversão</h3>
+        <div id="funil-list"></div>
+      </div>
+      <div style="flex:1;min-width:320px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;">
+        <h3 style="font-size:15px;margin-bottom:14px;">Por fonte do lead</h3>
+        <div id="fonte-list"></div>
+      </div>
+      <div style="flex:1;min-width:320px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;">
+        <h3 style="font-size:15px;margin-bottom:14px;">Motivos de encerramento</h3>
+        <div id="motivo-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="view" id="view-roteiros">
+    <div style="padding:20px 28px;display:flex;flex-direction:column;gap:12px;max-width:720px;" id="roteiros-list"></div>
   </div>
 </div>
 
@@ -189,7 +223,7 @@
       <div class="field"><label>Nome do lead / empresa</label><input type="text" id="f-nome" required></div>
       <div class="field-row">
         <div class="field"><label>Tipo</label><select id="f-tipo"><option value="b2b">B2B</option><option value="b2c">B2C</option></select></div>
-        <div class="field"><label>Origem</label><input type="text" id="f-origem"></div>
+        <div class="field"><label>Origem</label><select id="f-origem"></select></div>
       </div>
       <div class="field-row">
         <div class="field"><label>Contato</label><input type="text" id="f-contato"></div>
@@ -197,9 +231,23 @@
       </div>
       <div class="field-row">
         <div class="field"><label>Etapa</label><select id="f-etapa"></select></div>
-        <div class="field"><label>Follow-up</label><input type="date" id="f-followup"></div>
+        <div class="field">
+          <label>Follow-up</label>
+          <div style="display:flex;gap:6px;">
+            <input type="date" id="f-followup" style="flex:1;">
+            <button type="button" class="btn-secondary" id="btn-sugerir-cadencia" style="white-space:nowrap;padding:9px 10px;" title="Sugerir data conforme a cadência de 7 tentativas (D0 a D+21)">📅 Cadência</button>
+          </div>
+        </div>
+      </div>
+      <div class="field" id="f-motivo-block" hidden>
+        <label>Motivo do encerramento</label>
+        <select id="f-motivo"></select>
       </div>
       <div class="field"><label>Notas</label><textarea id="f-notas"></textarea></div>
+      <div class="checklist" id="lead-timeline-block" hidden>
+        <h3>Histórico</h3>
+        <div id="lead-timeline-list" style="max-height:150px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;"></div>
+      </div>
       <div class="modal-actions">
         <button type="button" class="btn-danger" id="btn-delete-lead" hidden>Excluir</button>
         <div style="flex:1"></div>
@@ -310,7 +358,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, getDoc, setDoc,
-  getDocs, query, where, arrayUnion, arrayRemove, orderBy
+  getDocs, query, where, arrayUnion, arrayRemove, orderBy, enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 /* ============ CONFIGURAÇÃO ============ */
@@ -333,11 +381,36 @@ const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 
+// Modo offline: o painel continua funcionando sem internet e sincroniza
+// automaticamente quando a conexão voltar.
+enableIndexedDbPersistence(db).catch(err => {
+  if(err.code === 'failed-precondition'){
+    console.warn('Modo offline não ativado: mais de uma aba do painel aberta ao mesmo tempo.');
+  } else if(err.code === 'unimplemented'){
+    console.warn('Modo offline não suportado neste navegador.');
+  }
+});
+
 const STAGES = [
-  {id:'novo', label:'Novo lead'},{id:'contato', label:'Contato feito'},{id:'qualificado', label:'Qualificado'},
-  {id:'proposta', label:'Proposta enviada'},{id:'negociacao', label:'Negociação'},
-  {id:'ganho', label:'Ganho'},{id:'perdido', label:'Perdido'},
+  {id:'novo', label:'1 - Lead novo'},
+  {id:'contato', label:'2 - Contato efetivo'},
+  {id:'qualificado', label:'3 - Qualificado'},
+  {id:'link', label:'4 - Link enviado'},
+  {id:'inscricao', label:'5 - Inscrição concluída'},
+  {id:'aprovado', label:'6 - Aprovado no sistema'},
+  {id:'contrato', label:'7 - Contrato assinado'},
+  {id:'matriculado', label:'8 - Matriculado'},
+  {id:'encerrado', label:'0 - Encerrado'},
 ];
+const ORIGENS = [
+  'Indicação de aluno ou ex-aluno','Igreja do distrito','Escola adventista local','Funcionário da rede',
+  'Balcão ou WhatsApp do polo','Reativação de inscrito anterior','Redes sociais ou anúncio','Outro',
+];
+const MOTIVOS_ENCERRAMENTO = [
+  'Preço','Curso não ofertado','Adiou para a próxima entrada','Escolheu outra instituição',
+  'Não concluiu a inscrição online','Aprovado mas não pagou','Documentação','Sem contato após 7 tentativas',
+];
+const CADENCIA_DIAS = [0,1,2,4,7,14,21];
 const CHECKLIST_TEMPLATE = [
   'Sala reservada e confirmada','Material impresso (provas e gabaritos)','Aplicador/fiscal confirmado',
   'Lista de presença pronta','Ata de aplicação preparada','Alunos avisados (lembrete enviado)',
@@ -361,13 +434,67 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 function formatMoney(v){ if(v===null||v===undefined||v==='') return ''; return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
 function formatDateBR(dateStr){ if(!dateStr) return ''; const [y,m,d]=dateStr.split('-'); return `${d}/${m}`; }
 function followUpStatus(dateStr, etapa){
-  if(!dateStr || etapa==='ganho' || etapa==='perdido') return null;
+  if(!dateStr || etapa==='matriculado' || etapa==='encerrado') return null;
   const t = todayStr();
   if(dateStr < t) return 'overdue';
   if(dateStr === t) return 'today';
   return 'future';
 }
 function uid(){ return 'c'+Date.now()+Math.random().toString(16).slice(2,8); }
+async function addTimelineEntry(leadId, tipo, texto){
+  try{
+    await addDoc(collection(db, 'polos', selectedPoloId, 'leads', leadId, 'timeline'), {
+      tipo, texto, criadoEm: new Date().toISOString(),
+    });
+  }catch(e){ console.error('Erro ao registrar histórico', e); }
+}
+async function renderLeadTimeline(leadId){
+  const block = document.getElementById('lead-timeline-block');
+  const list = document.getElementById('lead-timeline-list');
+  if(!leadId){ block.hidden = true; return; }
+  block.hidden = false;
+  list.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">Carregando...</div>';
+  try{
+    const q = query(collection(db, 'polos', selectedPoloId, 'leads', leadId, 'timeline'), orderBy('criadoEm', 'desc'));
+    const snap = await getDocs(q);
+    if(snap.empty){ list.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">Sem histórico ainda.</div>'; return; }
+    list.innerHTML = snap.docs.map(d => {
+      const t = d.data();
+      const data = new Date(t.criadoEm);
+      const dataFmt = `${String(data.getDate()).padStart(2,'0')}/${String(data.getMonth()+1).padStart(2,'0')} às ${String(data.getHours()).padStart(2,'0')}:${String(data.getMinutes()).padStart(2,'0')}`;
+      return `<div class="timeline-item"><div class="t-texto">${escapeHtml(t.texto)}</div><div class="t-data">${dataFmt}</div></div>`;
+    }).join('');
+  }catch(e){ list.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">Não foi possível carregar o histórico.</div>'; }
+}
+
+function stageLabel(id){ return (STAGES.find(s => s.id === id) || {}).label || id; }
+function checkAndNotify(){
+  if(!('Notification' in window) || Notification.permission !== 'granted') return;
+  const atrasados = leads.filter(l => followUpStatus(l.proximoFollowUp, l.etapa) === 'overdue');
+  if(atrasados.length){
+    new Notification('Follow-ups atrasados', { body: `${atrasados.length} lead(s) com follow-up atrasado neste polo.` });
+  }
+  const hoje = todayStr();
+  const provasHoje = eventos.filter(e => e.tipo === 'prova' && e.data === hoje);
+  if(provasHoje.length){
+    new Notification('Prova hoje', { body: provasHoje.map(p => p.titulo).join(', ') });
+  }
+}
+document.getElementById('btn-notify').addEventListener('click', async () => {
+  if(!('Notification' in window)){ alert('Seu navegador não suporta notificações.'); return; }
+  if(Notification.permission === 'granted'){
+    checkAndNotify();
+    alert('Lembretes já estão ativados. Você recebe avisos enquanto o painel estiver aberto.');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if(perm === 'granted'){
+    alert('Lembretes ativados! Você vai receber avisos de follow-up atrasado e provas do dia enquanto o painel estiver aberto no navegador.');
+    checkAndNotify();
+  } else {
+    alert('Permissão negada. Se mudar de ideia, ative notificações para este site nas configurações do navegador.');
+  }
+});
 
 /* ================= AUTH ================= */
 function updateAuthUI(){
@@ -424,8 +551,14 @@ onAuthStateChanged(auth, async (user) => {
     renderPoloSelect();
     await loadLeads();
     await loadEventos();
+    await loadMeta();
     renderVendas();
     renderAgenda();
+    checkAndNotify();
+    if(!window.__notifyIntervalStarted){
+      window.__notifyIntervalStarted = true;
+      setInterval(checkAndNotify, 20 * 60 * 1000);
+    }
   } else {
     currentUser = null;
     document.getElementById('auth-screen').style.display = 'flex';
@@ -460,12 +593,16 @@ function renderPoloSelect(){
 document.getElementById('select-polo').addEventListener('change', async e => {
   selectedPoloId = e.target.value;
   localStorage.setItem('polo-selecionado', selectedPoloId);
-  await loadLeads(); await loadEventos();
+  await loadLeads(); await loadEventos(); await loadMeta();
   renderVendas(); renderAgenda();
 });
 document.getElementById('btn-go-relatorios').addEventListener('click', () => {
   if(selectedPoloId) localStorage.setItem('polo-selecionado', selectedPoloId);
   window.location.href = 'relatorios.html';
+});
+document.getElementById('btn-go-plano').addEventListener('click', () => {
+  if(selectedPoloId) localStorage.setItem('polo-selecionado', selectedPoloId);
+  window.location.href = 'plano-de-acoes.html';
 });
 document.getElementById('btn-manage-polos').addEventListener('click', async () => {
   renderMyPolosList();
@@ -524,6 +661,26 @@ document.getElementById('btn-add-gestor').addEventListener('click', async () => 
 });
 
 /* ================= VENDAS (LEADS) ================= */
+function currentMonthKey(){ return todayStr().slice(0,7); }
+let metaAtual = 0;
+async function loadMeta(){
+  if(!selectedPoloId){ metaAtual = 0; return; }
+  try{
+    const snap = await getDoc(doc(db, 'polos', selectedPoloId, 'metas', currentMonthKey()));
+    metaAtual = snap.exists() ? (snap.data().valor || 0) : 0;
+  }catch(e){ metaAtual = 0; }
+}
+document.addEventListener('click', async e => {
+  if(e.target.id !== 'btn-edit-meta') return;
+  const novo = prompt('Meta de matrículas/vendas fechadas para este mês:', metaAtual || '');
+  if(novo === null) return;
+  const valor = Number(novo);
+  if(isNaN(valor) || valor < 0) return;
+  metaAtual = valor;
+  await setDoc(doc(db, 'polos', selectedPoloId, 'metas', currentMonthKey()), { valor });
+  renderVendas();
+});
+
 async function loadLeads(){
   if(!selectedPoloId){ leads = []; return; }
   const snap = await getDocs(collection(db, 'polos', selectedPoloId, 'leads'));
@@ -541,17 +698,27 @@ function getFilteredLeads(){
 }
 function renderVendas(){
   const all = getFilteredLeads();
-  const ativos = all.filter(l => l.etapa!=='ganho' && l.etapa!=='perdido');
+  const ativos = all.filter(l => l.etapa!=='matriculado' && l.etapa!=='encerrado');
   const atrasados = ativos.filter(l => followUpStatus(l.proximoFollowUp,l.etapa)==='overdue');
-  const ganhos = all.filter(l=>l.etapa==='ganho'), perdidos = all.filter(l=>l.etapa==='perdido');
-  const totalFechados = ganhos.length+perdidos.length;
-  const taxa = totalFechados>0 ? Math.round((ganhos.length/totalFechados)*100) : 0;
-  const emNeg = all.filter(l=>l.etapa==='proposta'||l.etapa==='negociacao').reduce((s,l)=>s+(Number(l.valor)||0),0);
+  const matriculados = all.filter(l=>l.etapa==='matriculado'), encerrados = all.filter(l=>l.etapa==='encerrado');
+  const totalFechados = matriculados.length+encerrados.length;
+  const taxa = totalFechados>0 ? Math.round((matriculados.length/totalFechados)*100) : 0;
+  const emCritico = all.filter(l=>l.etapa==='aprovado'||l.etapa==='contrato').reduce((s,l)=>s+(Number(l.valor)||0),0);
+  const slaEstourado = all.filter(l => l.etapa==='aprovado' && l.aprovadoEm && (Date.now() - new Date(l.aprovadoEm).getTime()) > 2*60*60*1000);
+  const mesAtual = currentMonthKey();
+  const ganhosEsteMes = leads.filter(l => l.etapa==='matriculado' && l.fechadoEm && l.fechadoEm.slice(0,7) === mesAtual).length;
+  const pct = metaAtual > 0 ? Math.min(100, Math.round((ganhosEsteMes/metaAtual)*100)) : 0;
   document.getElementById('metrics').innerHTML = `
     <div class="metric"><div class="value">${ativos.length}</div><div class="label">Leads ativos</div></div>
     <div class="metric ${atrasados.length>0?'warn':''}"><div class="value">${atrasados.length}</div><div class="label">Follow-ups atrasados</div></div>
+    <div class="metric ${slaEstourado.length>0?'warn':''}"><div class="value">${slaEstourado.length}</div><div class="label">SLA 2h estourado (aprovados)</div></div>
     <div class="metric"><div class="value">${taxa}%</div><div class="label">Taxa de conversão</div></div>
-    <div class="metric"><div class="value">${formatMoney(emNeg)}</div><div class="label">Em proposta/negociação</div></div>
+    <div class="metric"><div class="value">${formatMoney(emCritico)}</div><div class="label">Em aprovado/contrato</div></div>
+    <div class="metric">
+      <div class="value">${ganhosEsteMes}${metaAtual ? '/'+metaAtual : ''}</div>
+      <div class="label">Meta do mês <button class="meta-edit-btn" id="btn-edit-meta">Editar</button></div>
+      ${metaAtual ? `<div class="meta-progress"><div class="meta-progress-fill" style="width:${pct}%"></div></div>` : ''}
+    </div>
   `;
   const board = document.getElementById('board');
   board.innerHTML = '';
@@ -570,10 +737,15 @@ function renderVendas(){
         const label = fu==='overdue' ? `Atrasado desde ${formatDateBR(lead.proximoFollowUp)}` : fu==='today' ? 'Follow-up hoje' : `Follow-up em ${formatDateBR(lead.proximoFollowUp)}`;
         fuHtml = `<div class="card-followup ${fu||''}">${label}</div>`;
       }
+      let slaHtml = '';
+      if(lead.etapa==='aprovado' && lead.aprovadoEm){
+        const horas = (Date.now() - new Date(lead.aprovadoEm).getTime()) / (60*60*1000);
+        if(horas > 2){ slaHtml = `<div class="card-followup overdue">⏱ SLA 2h estourado</div>`; }
+      }
       card.innerHTML = `
         <div class="card-top"><div class="card-name">${escapeHtml(lead.nome)}</div><span class="tag ${lead.tipo}">${lead.tipo.toUpperCase()}</span></div>
         ${lead.valor ? `<div class="card-value">${formatMoney(lead.valor)}</div>` : ''}
-        ${fuHtml}
+        ${fuHtml}${slaHtml}
       `;
       card.addEventListener('click', () => openLeadModal(lead.id));
       card.addEventListener('dragstart', e => { card.classList.add('dragging'); e.dataTransfer.setData('text/plain', lead.id); });
@@ -587,22 +759,151 @@ function renderVendas(){
       const id = e.dataTransfer.getData('text/plain');
       const lead = leads.find(l => l.id === id);
       if(lead && lead.etapa !== stage.id){
-        await updateDoc(doc(db, 'polos', selectedPoloId, 'leads', id), { etapa: stage.id });
-        lead.etapa = stage.id;
+        if(stage.id === 'encerrado' && !lead.motivoEncerramento){
+          const motivo = await promptMotivoEncerramento();
+          if(motivo === null) return; // cancelou
+          lead.motivoEncerramento = motivo;
+        }
+        const etapaAnterior = lead.etapa;
+        const updateData = { etapa: stage.id };
+        if(stage.id === 'matriculado' && !lead.fechadoEm){ updateData.fechadoEm = todayStr(); }
+        if(stage.id === 'aprovado' && !lead.aprovadoEm){ updateData.aprovadoEm = new Date().toISOString(); }
+        if(stage.id === 'encerrado'){ updateData.motivoEncerramento = lead.motivoEncerramento || null; }
+        await updateDoc(doc(db, 'polos', selectedPoloId, 'leads', id), updateData);
+        Object.assign(lead, updateData);
+        addTimelineEntry(id, 'etapa', `Movido de "${stageLabel(etapaAnterior)}" para "${stageLabel(stage.id)}"`);
         renderVendas();
       }
     });
     board.appendChild(col);
   });
+  renderConversao();
 }
+function promptMotivoEncerramento(){
+  return new Promise(resolve => {
+    const lista = MOTIVOS_ENCERRAMENTO.map((m,i) => `${i+1}. ${m}`).join('\n');
+    const escolha = prompt(`Motivo do encerramento (digite o número):\n${lista}`);
+    if(escolha === null){ resolve(null); return; }
+    const idx = Number(escolha) - 1;
+    resolve(MOTIVOS_ENCERRAMENTO[idx] || 'Outro');
+  });
+}
+function renderConversao(){
+  const box = document.getElementById('conversao-metrics');
+  if(!box) return;
+  const all = leads;
+  const total = all.length;
+  const matriculados = all.filter(l => l.etapa === 'matriculado').length;
+  const aguardandoPagamento = all.filter(l => l.etapa === 'aprovado' || l.etapa === 'contrato').length;
+  const semPrimeiroContato = all.filter(l => l.etapa === 'novo').length;
+  const slaOk = all.filter(l => l.etapa === 'aprovado' && l.aprovadoEm && (Date.now() - new Date(l.aprovadoEm).getTime()) <= 2*60*60*1000).length;
+  const aprovadosTotal = all.filter(l => l.aprovadoEm).length;
+  const slaPct = aprovadosTotal > 0 ? Math.round((slaOk/aprovadosTotal)*100) : 0;
+  box.innerHTML = `
+    <div class="metric"><div class="value">${total}</div><div class="label">Total de leads</div></div>
+    <div class="metric"><div class="value">${aguardandoPagamento}</div><div class="label">Aprovados aguardando pagamento</div></div>
+    <div class="metric"><div class="value">${semPrimeiroContato}</div><div class="label">Sem 1º contato</div></div>
+    <div class="metric"><div class="value">${slaPct}%</div><div class="label">Contato em até 2h após aprovação</div></div>
+    <div class="metric"><div class="value">${matriculados}</div><div class="label">Matriculados</div></div>
+  `;
+
+  const funilBox = document.getElementById('funil-list');
+  let anterior = null;
+  funilBox.innerHTML = STAGES.map(stage => {
+    const qtd = all.filter(l => l.etapa === stage.id).length;
+    const pctTotal = total > 0 ? Math.round((qtd/total)*100) : 0;
+    const row = `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;">
+      <span>${stage.label}</span><span style="color:var(--text-muted);">${qtd} (${pctTotal}%)</span>
+    </div>`;
+    return row;
+  }).join('');
+
+  const fonteBox = document.getElementById('fonte-list');
+  fonteBox.innerHTML = ORIGENS.map(origem => {
+    const leadsFonte = all.filter(l => l.origem === origem);
+    const matriculadosFonte = leadsFonte.filter(l => l.etapa === 'matriculado').length;
+    const conv = leadsFonte.length > 0 ? Math.round((matriculadosFonte/leadsFonte.length)*100) : 0;
+    if(leadsFonte.length === 0) return '';
+    return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;">
+      <span>${escapeHtml(origem)}</span><span style="color:var(--text-muted);">${leadsFonte.length} leads · ${matriculadosFonte} matric. · ${conv}%</span>
+    </div>`;
+  }).join('') || '<div style="color:var(--text-muted);font-size:12.5px;">Sem dados ainda.</div>';
+
+  const motivoBox = document.getElementById('motivo-list');
+  const encerrados = all.filter(l => l.etapa === 'encerrado');
+  motivoBox.innerHTML = MOTIVOS_ENCERRAMENTO.map(motivo => {
+    const qtd = encerrados.filter(l => l.motivoEncerramento === motivo).length;
+    if(qtd === 0) return '';
+    const pct = encerrados.length > 0 ? Math.round((qtd/encerrados.length)*100) : 0;
+    return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;">
+      <span>${escapeHtml(motivo)}</span><span style="color:var(--text-muted);">${qtd} (${pct}%)</span>
+    </div>`;
+  }).join('') || '<div style="color:var(--text-muted);font-size:12.5px;">Nenhum lead encerrado ainda.</div>';
+}
+
+const ROTEIROS = [
+  { momento:'1º contato (até 2h)', canal:'Áudio 30s', mensagem:'Oi [nome]! Aqui é o [gestor], do Polo [cidade] da Educação Adventista. Vi que você se interessou por [curso]. Me conta rapidinho: já cursou faculdade antes ou seria a primeira graduação?' },
+  { momento:'Sem resposta em 24h', canal:'Texto', mensagem:'[nome], passando aqui de novo. Pra eu não te atrapalhar: prefere que eu te explique por áudio, por mensagem ou numa ligação rápida?' },
+  { momento:'Diagnóstico', canal:'Texto', mensagem:'Perfeito, [nome]. Pra eu te orientar certo: 1) qual curso te interessa; 2) já cursou ensino superior antes; 3) quanto tempo por semana consegue estudar; 4) o que precisaria acontecer pra você começar já nesta entrada?' },
+  { momento:'Proposta + link', canal:'Texto', mensagem:'[nome], segue tudo:\nCurso: [curso]\nIngresso: [ENEM / transferência / 2ª graduação]\nMensalidade: R$ [valor] com [bolsa]\nPrimeira parcela: R$ [valor]\nInscrições até [data]\nLink: [link]\nA inscrição é online e leva uns [X] minutos. O resultado sai rápido.' },
+  { momento:'Convite para fazer agora', canal:'Áudio 20s', mensagem:'[nome], se você tiver [X] minutos agora, faz comigo aqui: eu fico no WhatsApp te acompanhando e, se travar em alguma tela, você me manda print que eu resolvo na hora. Topa fazer agora?' },
+  { momento:'Confirmar se concluiu', canal:'Texto', mensagem:'[nome], conseguiu finalizar a inscrição? Se travou em alguma parte, me manda um print que eu te ajudo.' },
+  { momento:'Não concluiu em 48h', canal:'Ligação', mensagem:'Objetivo: descobrir o que impediu — documento que não tinha em mãos, dúvida no formulário, insegurança com o curso ou com o valor. Registrar o motivo real na coluna de objeção.' },
+  { momento:'Aprovação vista no sistema (até 2h)', canal:'Áudio pessoal', mensagem:'[nome], saiu seu resultado: você foi aprovado(a) em [curso]! Agora falta só assinar o contrato e garantir a vaga com a primeira parcela. Te mando os dois aqui agora, pode ser?' },
+  { momento:'Contrato + pagamento', canal:'Texto', mensagem:'[nome], aqui vai o contrato e o Pix da primeira parcela (R$ [valor]).\nChave: [chave]\nAssim que o pagamento entrar, sua vaga fica garantida e eu já te mando o acesso.\nConsegue resolver hoje ainda ou prefere amanhã de manhã?' },
+  { momento:'Não pagou no mesmo dia', canal:'Áudio 20s', mensagem:'Oi [nome], tudo bem? Vi que a primeira parcela ainda não entrou. Aconteceu alguma coisa ou foi só corrido? Se precisar mudar a data, me fala que a gente ajeita.' },
+  { momento:'Não pagou no dia seguinte', canal:'Ligação', mensagem:'Objetivo: descobrir a objeção real. Pode ser data da parcela, conversa pendente com a família ou insegurança. Aprovado não pode ficar no follow-up automático.' },
+  { momento:'Boas-vindas após o pagamento', canal:'Áudio pessoal', mensagem:'[nome], pagamento confirmado, seja bem-vindo(a) à Educação Adventista! Eu sou o [gestor] e vou te acompanhar durante o curso. As aulas começam em [data] e até lá eu te mando o passo a passo de acesso.' },
+  { momento:'Encerramento com porta aberta', canal:'Texto', mensagem:'[nome], entendi perfeitamente. Vou te deixar registrado pra próxima entrada, que abre em [mês]. Se mudar de ideia antes, é só me chamar aqui.' },
+];
+function renderRoteiros(){
+  const box = document.getElementById('roteiros-list');
+  if(!box) return;
+  box.innerHTML = ROTEIROS.map((r, idx) => `
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div><strong style="font-size:13.5px;">${escapeHtml(r.momento)}</strong> <span style="color:var(--text-muted);font-size:11.5px;">· ${escapeHtml(r.canal)}</span></div>
+        <button class="small-btn" data-copy="${idx}">Copiar</button>
+      </div>
+      <div style="font-size:12.5px;color:var(--text-muted);white-space:pre-wrap;">${escapeHtml(r.mensagem)}</div>
+    </div>
+  `).join('');
+  box.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(ROTEIROS[Number(btn.dataset.copy)].mensagem).then(() => {
+        btn.textContent = 'Copiado ✓';
+        setTimeout(() => { btn.textContent = 'Copiar'; }, 1500);
+      });
+    });
+  });
+}
+
 function populateEtapaSelect(){
   document.getElementById('f-etapa').innerHTML = STAGES.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+  document.getElementById('f-origem').innerHTML = '<option value="">Selecione...</option>' + ORIGENS.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+  document.getElementById('f-motivo').innerHTML = '<option value="">Selecione...</option>' + MOTIVOS_ENCERRAMENTO.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
 }
+document.getElementById('f-etapa').addEventListener('change', () => {
+  document.getElementById('f-motivo-block').hidden = document.getElementById('f-etapa').value !== 'encerrado';
+});
+document.getElementById('btn-sugerir-cadencia').addEventListener('click', () => {
+  if(!editingLeadId){ alert('Salve o lead primeiro pra calcular a cadência a partir da data de criação.'); return; }
+  const lead = leads.find(l => l.id === editingLeadId);
+  const criado = lead && lead.criadoEm ? new Date(lead.criadoEm + 'T00:00:00') : new Date();
+  const hoje = new Date(todayStr() + 'T00:00:00');
+  const diasPassados = Math.round((hoje - criado) / (1000*60*60*24));
+  const proximoDia = CADENCIA_DIAS.find(d => d > diasPassados);
+  const dias = proximoDia !== undefined ? proximoDia : CADENCIA_DIAS[CADENCIA_DIAS.length - 1];
+  const sugestao = new Date(criado);
+  sugestao.setDate(sugestao.getDate() + dias);
+  document.getElementById('f-followup').value = sugestao.toISOString().slice(0,10);
+});
 function openLeadModal(id=null){
   editingLeadId = id;
   const title = document.getElementById('lead-modal-title');
   const btnDel = document.getElementById('btn-delete-lead');
   document.getElementById('lead-form').reset();
+  document.getElementById('f-motivo-block').hidden = true;
   if(id){
     const lead = leads.find(l => l.id === id);
     title.textContent = 'Editar lead';
@@ -614,6 +915,8 @@ function openLeadModal(id=null){
     document.getElementById('f-etapa').value = lead.etapa;
     document.getElementById('f-followup').value = lead.proximoFollowUp || '';
     document.getElementById('f-notas').value = lead.notas || '';
+    document.getElementById('f-motivo').value = lead.motivoEncerramento || '';
+    document.getElementById('f-motivo-block').hidden = lead.etapa !== 'encerrado';
     btnDel.hidden = false;
   } else {
     title.textContent = 'Novo lead';
@@ -621,6 +924,7 @@ function openLeadModal(id=null){
     btnDel.hidden = true;
   }
   document.getElementById('modal-lead').hidden = false;
+  renderLeadTimeline(id);
 }
 document.getElementById('btn-cancel-lead').addEventListener('click', () => document.getElementById('modal-lead').hidden = true);
 document.getElementById('lead-form').addEventListener('submit', async e => {
@@ -635,12 +939,21 @@ document.getElementById('lead-form').addEventListener('submit', async e => {
     proximoFollowUp: document.getElementById('f-followup').value || null,
     notas: document.getElementById('f-notas').value.trim(),
   };
+  if(data.etapa === 'encerrado'){ data.motivoEncerramento = document.getElementById('f-motivo').value || null; }
   if(!data.nome) return;
   if(editingLeadId){
+    const leadAntigo = leads.find(l => l.id === editingLeadId);
+    const etapaAnterior = leadAntigo ? leadAntigo.etapa : null;
+    if(data.etapa === 'matriculado' && leadAntigo && !leadAntigo.fechadoEm){ data.fechadoEm = todayStr(); }
+    if(data.etapa === 'aprovado' && leadAntigo && !leadAntigo.aprovadoEm){ data.aprovadoEm = new Date().toISOString(); }
     await updateDoc(doc(db, 'polos', selectedPoloId, 'leads', editingLeadId), data);
+    if(etapaAnterior && etapaAnterior !== data.etapa){
+      addTimelineEntry(editingLeadId, 'etapa', `Movido de "${stageLabel(etapaAnterior)}" para "${stageLabel(data.etapa)}"`);
+    }
   } else {
     data.criadoEm = todayStr();
-    await addDoc(collection(db, 'polos', selectedPoloId, 'leads'), data);
+    const docRef = await addDoc(collection(db, 'polos', selectedPoloId, 'leads'), data);
+    addTimelineEntry(docRef.id, 'criado', 'Lead criado');
   }
   document.getElementById('modal-lead').hidden = true;
   await loadLeads();
@@ -691,7 +1004,7 @@ document.getElementById('wa-parse').addEventListener('click', () => {
   document.getElementById('lead-modal-title').textContent = 'Novo lead (do WhatsApp)';
   document.getElementById('f-nome').value = parsed.nome;
   document.getElementById('f-tipo').value = 'b2c';
-  document.getElementById('f-origem').value = 'WhatsApp';
+  document.getElementById('f-origem').value = 'Balcão ou WhatsApp do polo';
   document.getElementById('f-contato').value = parsed.contato;
   document.getElementById('f-etapa').value = 'novo';
   document.getElementById('f-followup').value = todayStr();
@@ -766,7 +1079,7 @@ document.getElementById('bulk-confirm').addEventListener('click', async () => {
     await addDoc(collection(db, 'polos', selectedPoloId, 'leads'), {
       nome: item.nome.trim(),
       tipo: 'b2c',
-      origem: 'WhatsApp (importado em lote)',
+      origem: 'Balcão ou WhatsApp do polo',
       contato: item.contato.trim(),
       valor: null,
       etapa: 'novo',
@@ -906,14 +1219,48 @@ document.getElementById('btn-delete-evento').addEventListener('click', async () 
 
 document.querySelector('.maintabs').addEventListener('click', e => {
   if(e.target.tagName !== 'BUTTON') return;
+  const view = e.target.dataset.view;
+  if(!view) return;
   document.querySelectorAll('.maintabs button').forEach(b => b.classList.remove('active'));
   e.target.classList.add('active');
-  const view = e.target.dataset.view;
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + view).classList.add('active');
 });
 
+function downloadCSV(content, filename){
+  const blob = new Blob(["\uFEFF" + content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function csvEscape(v){ return `"${String(v ?? '').replace(/"/g,'""').replace(/\n/g,' ')}"`; }
+
+document.getElementById('btn-export-leads').addEventListener('click', () => {
+  const rows = getFilteredLeads();
+  const header = ['Nome','Tipo','Origem','Contato','Valor','Etapa','Follow-up','Fechado em','Notas'];
+  const lines = [header.map(csvEscape).join(';')];
+  rows.forEach(l => {
+    lines.push([l.nome, l.tipo, l.origem, l.contato, l.valor, stageLabel(l.etapa), l.proximoFollowUp, l.fechadoEm, l.notas].map(csvEscape).join(';'));
+  });
+  const poloNome = (polos.find(p => p.id === selectedPoloId) || {}).nome || 'polo';
+  downloadCSV(lines.join('\n'), `leads-${poloNome.replace(/\s+/g,'-')}-${todayStr()}.csv`);
+});
+
+document.getElementById('btn-export-eventos').addEventListener('click', () => {
+  const rows = eventos.filter(ev => currentEventoFilter === 'todos' || ev.tipo === currentEventoFilter);
+  const header = ['Tipo','Título','Data','Início','Fim','Sala','Responsável','Observações'];
+  const lines = [header.map(csvEscape).join(';')];
+  rows.forEach(ev => {
+    lines.push([ev.tipo, ev.titulo, ev.data, ev.horaInicio, ev.horaFim, ev.sala, ev.responsavel, ev.obs].map(csvEscape).join(';'));
+  });
+  const poloNome = (polos.find(p => p.id === selectedPoloId) || {}).nome || 'polo';
+  downloadCSV(lines.join('\n'), `agenda-${poloNome.replace(/\s+/g,'-')}-${todayStr()}.csv`);
+});
+
 populateEtapaSelect();
+renderRoteiros();
 updateAuthUI();
 </script>
 </body>
