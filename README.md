@@ -80,6 +80,32 @@ automaticamente no navegador antes de salvar, pra caber nos limites do banco
 gratuito. Ficam ótimas pra visualizar na tela e no PDF, mas não servem pra
 impressão em alta qualidade. Recomendo no máximo 6-8 fotos por relatório.
 
+## Novo: comando de voz "Sync" (`assistant.js`)
+Botão flutuante 🎙️ no canto inferior direito, em todas as telas. Clique e
+fale — funciona 100% no navegador (Web Speech API), sem custo, mas
+**funciona melhor no Chrome** (computador ou Android). No Safari/iPhone o
+reconhecimento de voz é limitado ou pode não funcionar.
+
+Exemplos de comandos que já entende:
+- **"Marque uma prova de matemática dia 20 às 14h"** → abre a Agenda com o
+  evento pré-preenchido, só falta confirmar e salvar
+- **"Abra novo evento"** / **"Abra novo lead"** / **"Abra nova ação"** /
+  **"Abra nova transação"** → abre o formulário certo, na tela certa (se
+  você pedir "nova ação" estando fora de Relatórios, ele te leva pra lá)
+- **"O que eu tenho de mais urgente hoje?"** → o Sync fala um resumo:
+  SLA estourado, follow-ups atrasados, provas do dia
+- **"Abra o financeiro"** / **"Abra o plano de ações"** / **"Abra os
+  relatórios"** / **"Abra a agenda"** / **"Abra as vendas"** → navega
+  direto pra tela pedida
+- **"Gere o PDF"** (na tela de Relatórios) → dispara a geração do PDF do mês
+
+Não precisa dizer "Sync" antes do comando (o app já está escutando quando
+você aperta o botão), mas pode falar naturalmente, tipo "Sync, marque..."
+que ele entende do mesmo jeito — a palavra é só ignorada na interpretação.
+
+Esse arquivo (`assistant.js`) precisa ir pro GitHub junto com os `.html`,
+na mesma pasta. Não precisa de nenhuma configuração nele.
+
 ## Novidades inspiradas na Frontzapp (versão gratuita)
 Analisei o https://frontzapp.com.br/ — é uma plataforma paga de automação
 de WhatsApp (API oficial, IA de atendimento, disparos em massa). Essas

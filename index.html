@@ -114,6 +114,13 @@
   .check-item.done label{color:var(--text-muted);text-decoration:line-through;}
   .gestor-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
   .gestor-row button{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;}
+  .sync-fab{position:fixed;bottom:24px;right:24px;width:58px;height:58px;border-radius:50%;background:var(--gold);color:#1B1B14;border:none;font-size:24px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.4);z-index:200;display:flex;align-items:center;justify-content:center;transition:transform .15s;}
+  .sync-fab:hover{transform:scale(1.06);}
+  .sync-fab.listening{background:var(--red);animation:sync-pulse 1s infinite;}
+  .sync-fab.speaking{background:var(--teal);animation:sync-pulse 1.4s infinite;}
+  @keyframes sync-pulse{0%{box-shadow:0 0 0 0 rgba(193,102,107,0.5);}70%{box-shadow:0 0 0 16px rgba(193,102,107,0);}100%{box-shadow:0 0 0 0 rgba(193,102,107,0);}}
+  .sync-bubble{position:fixed;bottom:92px;right:24px;max-width:260px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:12.5px;color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,0.4);z-index:200;}
+  .sync-bubble[hidden]{display:none;}
   .bulk-item{background:var(--panel-alt);border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;}
   .bulk-item input[type="checkbox"]{width:auto;margin-top:9px;}
   .bulk-item .bulk-fields{flex:1;display:flex;flex-direction:column;gap:6px;}
@@ -396,6 +403,10 @@
   </div>
 </div>
 
+<button class="sync-fab" id="sync-btn" title="Comando de voz Sync" hidden>🎙️</button>
+<div class="sync-bubble" id="sync-bubble" hidden></div>
+
+<script src="assistant.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
@@ -601,6 +612,7 @@ onAuthStateChanged(auth, async (user) => {
     await loadGestoresAtuais();
     renderVendas();
     renderAgenda();
+    document.getElementById('sync-btn').hidden = false;
     checkAndNotify();
     if(!window.__notifyIntervalStarted){
       window.__notifyIntervalStarted = true;
@@ -1491,6 +1503,115 @@ document.getElementById('btn-export-eventos').addEventListener('click', () => {
 populateEtapaSelect();
 renderRoteiros();
 updateAuthUI();
+
+/* ================= SYNC — assistente de voz ================= */
+function syncSay(texto){
+  const bubble = document.getElementById('sync-bubble');
+  bubble.textContent = texto;
+  bubble.hidden = false;
+  SyncAssistant.speak(texto);
+  clearTimeout(window.__syncBubbleTimeout);
+  window.__syncBubbleTimeout = setTimeout(() => { bubble.hidden = true; }, 7000);
+}
+SyncAssistant.init((texto) => {
+  const bubble = document.getElementById('sync-bubble');
+  bubble.textContent = `Ouvi: "${texto}"`;
+  bubble.hidden = false;
+  const intent = SyncParse.intent(texto);
+  setTimeout(() => handleSyncIntent(intent, texto), 400);
+});
+document.getElementById('sync-btn').addEventListener('click', () => {
+  if(!SyncAssistant.supported){
+    syncSayVisual('Comando de voz não é suportado neste navegador. Tente pelo Chrome, no computador ou Android.');
+    return;
+  }
+  SyncAssistant.start();
+});
+function syncSayVisual(texto){
+  const bubble = document.getElementById('sync-bubble');
+  bubble.textContent = texto;
+  bubble.hidden = false;
+  clearTimeout(window.__syncBubbleTimeout);
+  window.__syncBubbleTimeout = setTimeout(() => { bubble.hidden = true; }, 7000);
+}
+document.addEventListener('sync-listen-start', () => document.getElementById('sync-btn').classList.add('listening'));
+document.addEventListener('sync-listen-end', () => document.getElementById('sync-btn').classList.remove('listening'));
+document.addEventListener('sync-speak-start', () => document.getElementById('sync-btn').classList.add('speaking'));
+document.addEventListener('sync-speak-end', () => document.getElementById('sync-btn').classList.remove('speaking'));
+
+function handleSyncIntent(intent, texto){
+  switch(intent){
+    case 'criar_evento': {
+      const titulo = SyncParse.titulo(texto);
+      const data = SyncParse.data(texto) || todayStr();
+      const hora = SyncParse.hora(texto) || '09:00';
+      const tipo = SyncParse.tipoEvento(texto);
+      document.querySelector('.maintabs button[data-view="agenda"]').click();
+      openEventoModal();
+      document.getElementById('e-titulo').value = titulo;
+      document.getElementById('e-data').value = data;
+      document.getElementById('e-inicio').value = hora;
+      document.getElementById('e-tipo').value = tipo;
+      renderChecklistFields(currentChecklist);
+      syncSay(`Deixei pronto: ${titulo || 'o compromisso'}, dia ${formatDateBR(data)} às ${hora}. Confere e salva aí.`);
+      break;
+    }
+    case 'abrir_novo_evento':
+      document.querySelector('.maintabs button[data-view="agenda"]').click();
+      openEventoModal();
+      syncSay('Abri um novo evento pra você preencher.');
+      break;
+    case 'abrir_novo_lead':
+      document.querySelector('.maintabs button[data-view="vendas"]').click();
+      openLeadModal();
+      syncSay('Abri um novo lead pra você preencher.');
+      break;
+    case 'abrir_nova_acao':
+      syncSay('A tela de ações é a de Relatórios. Te levando pra lá.');
+      localStorage.setItem('polo-selecionado', selectedPoloId);
+      localStorage.setItem('sync-abrir-nova-acao', '1');
+      setTimeout(() => { window.location.href = 'relatorios.html'; }, 1200);
+      break;
+    case 'urgente_hoje': {
+      const atrasados = leads.filter(l => followUpStatus(l.proximoFollowUp,l.etapa)==='overdue').length;
+      const hoje = todayStr();
+      const provasHoje = eventos.filter(e => e.tipo==='prova' && e.data===hoje);
+      const slaEstourado = leads.filter(l => l.etapa==='aprovado' && l.aprovadoEm && (Date.now()-new Date(l.aprovadoEm).getTime())>2*60*60*1000).length;
+      const frases = [];
+      if(slaEstourado>0) frases.push(`${slaEstourado} lead${slaEstourado>1?'s':''} aprovado${slaEstourado>1?'s':''} passando do prazo de duas horas sem contato`);
+      if(atrasados>0) frases.push(`${atrasados} follow-up${atrasados>1?'s':''} atrasado${atrasados>1?'s':''}`);
+      if(provasHoje.length>0) frases.push(`prova hoje: ${provasHoje.map(p=>p.titulo).join(', ')}`);
+      const resposta = frases.length ? `Olha o que precisa de atenção hoje: ${frases.join('; ')}.` : 'Nada urgente pendente por aqui hoje. Segue tranquilo!';
+      syncSay(resposta);
+      break;
+    }
+    case 'navegar_financeiro':
+      syncSay('Abrindo o Financeiro.');
+      localStorage.setItem('polo-selecionado', selectedPoloId);
+      setTimeout(() => { window.location.href = 'financeiro.html'; }, 900);
+      break;
+    case 'navegar_plano':
+      syncSay('Abrindo o Plano de Ações.');
+      localStorage.setItem('polo-selecionado', selectedPoloId);
+      setTimeout(() => { window.location.href = 'plano-de-acoes.html'; }, 900);
+      break;
+    case 'navegar_relatorios':
+      syncSay('Abrindo os Relatórios.');
+      localStorage.setItem('polo-selecionado', selectedPoloId);
+      setTimeout(() => { window.location.href = 'relatorios.html'; }, 900);
+      break;
+    case 'navegar_agenda':
+      document.querySelector('.maintabs button[data-view="agenda"]').click();
+      syncSay('Aqui está sua agenda.');
+      break;
+    case 'navegar_vendas':
+      document.querySelector('.maintabs button[data-view="vendas"]').click();
+      syncSay('Aqui está o painel de vendas.');
+      break;
+    default:
+      syncSay('Não peguei bem. Pode repetir de um outro jeito?');
+  }
+}
 </script>
 </body>
 </html>

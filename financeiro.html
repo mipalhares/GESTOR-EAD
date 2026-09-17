@@ -77,6 +77,13 @@
   .field-row .field{flex:1;}
   .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:10px;}
   #loading-screen{padding:60px;text-align:center;color:var(--text-muted);}
+  .sync-fab{position:fixed;bottom:24px;right:24px;width:58px;height:58px;border-radius:50%;background:var(--gold);color:#1B1B14;border:none;font-size:24px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.4);z-index:200;display:flex;align-items:center;justify-content:center;transition:transform .15s;}
+  .sync-fab:hover{transform:scale(1.06);}
+  .sync-fab.listening{background:var(--red);animation:sync-pulse 1s infinite;}
+  .sync-fab.speaking{background:var(--teal);animation:sync-pulse 1.4s infinite;}
+  @keyframes sync-pulse{0%{box-shadow:0 0 0 0 rgba(193,102,107,0.5);}70%{box-shadow:0 0 0 16px rgba(193,102,107,0);}100%{box-shadow:0 0 0 0 rgba(193,102,107,0);}}
+  .sync-bubble{position:fixed;bottom:92px;right:24px;max-width:260px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:12.5px;color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,0.4);z-index:200;}
+  .sync-bubble[hidden]{display:none;}
 </style>
 </head>
 <body>
@@ -155,6 +162,10 @@
   </div>
 </div>
 
+<button class="sync-fab" id="sync-btn" title="Comando de voz Sync" hidden>🎙️</button>
+<div class="sync-bubble" id="sync-bubble" hidden></div>
+
+<script src="assistant.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
@@ -212,6 +223,7 @@ onAuthStateChanged(auth, async (user) => {
   render();
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  document.getElementById('sync-btn').hidden = false;
 });
 
 async function loadPolos(){
@@ -385,6 +397,64 @@ document.getElementById('btn-export-fin').addEventListener('click', () => {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
+
+/* ================= SYNC — assistente de voz ================= */
+function syncSay(texto){
+  const bubble = document.getElementById('sync-bubble');
+  bubble.textContent = texto;
+  bubble.hidden = false;
+  SyncAssistant.speak(texto);
+  clearTimeout(window.__syncBubbleTimeout);
+  window.__syncBubbleTimeout = setTimeout(() => { bubble.hidden = true; }, 7000);
+}
+SyncAssistant.init((texto) => {
+  const bubble = document.getElementById('sync-bubble');
+  bubble.textContent = `Ouvi: "${texto}"`;
+  bubble.hidden = false;
+  const intent = SyncParse.intent(texto);
+  setTimeout(() => handleSyncIntent(intent, texto), 400);
+});
+document.getElementById('sync-btn').addEventListener('click', () => {
+  if(!SyncAssistant.supported){
+    const bubble = document.getElementById('sync-bubble');
+    bubble.textContent = 'Comando de voz não é suportado neste navegador. Tente pelo Chrome.';
+    bubble.hidden = false;
+    setTimeout(() => { bubble.hidden = true; }, 7000);
+    return;
+  }
+  SyncAssistant.start();
+});
+document.addEventListener('sync-listen-start', () => document.getElementById('sync-btn').classList.add('listening'));
+document.addEventListener('sync-listen-end', () => document.getElementById('sync-btn').classList.remove('listening'));
+document.addEventListener('sync-speak-start', () => document.getElementById('sync-btn').classList.add('speaking'));
+document.addEventListener('sync-speak-end', () => document.getElementById('sync-btn').classList.remove('speaking'));
+
+function handleSyncIntent(intent, texto){
+  switch(intent){
+    case 'abrir_nova_transacao':
+      openTxModal();
+      syncSay('Abri uma nova transação pra você preencher.');
+      break;
+    case 'navegar_vendas':
+    case 'navegar_agenda':
+      syncSay('Te levando pro painel principal.');
+      localStorage.setItem('polo-selecionado', selectedPoloId);
+      setTimeout(() => { window.location.href = 'index.html'; }, 900);
+      break;
+    case 'navegar_relatorios':
+      syncSay('Abrindo os Relatórios.');
+      localStorage.setItem('polo-selecionado', selectedPoloId);
+      setTimeout(() => { window.location.href = 'relatorios.html'; }, 900);
+      break;
+    case 'navegar_plano':
+      syncSay('Abrindo o Plano de Ações.');
+      localStorage.setItem('polo-selecionado', selectedPoloId);
+      setTimeout(() => { window.location.href = 'plano-de-acoes.html'; }, 900);
+      break;
+    default:
+      syncSay('Aqui nessa tela eu abro nova transação ou navego pra outras abas. Quer tentar de novo?');
+  }
+}
 </script>
 </body>
 </html>

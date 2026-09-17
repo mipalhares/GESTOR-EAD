@@ -75,6 +75,13 @@
   .btn-danger{background:none;border:none;color:var(--red);font-size:12.5px;cursor:pointer;text-decoration:underline;}
   #save-status{font-size:12px;color:var(--text-muted);}
   #loading-screen{padding:60px;text-align:center;color:var(--text-muted);}
+  .sync-fab{position:fixed;bottom:24px;right:24px;width:58px;height:58px;border-radius:50%;background:var(--gold);color:#1B1B14;border:none;font-size:24px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.4);z-index:200;display:flex;align-items:center;justify-content:center;transition:transform .15s;}
+  .sync-fab:hover{transform:scale(1.06);}
+  .sync-fab.listening{background:var(--red);animation:sync-pulse 1s infinite;}
+  .sync-fab.speaking{background:var(--teal);animation:sync-pulse 1.4s infinite;}
+  @keyframes sync-pulse{0%{box-shadow:0 0 0 0 rgba(193,102,107,0.5);}70%{box-shadow:0 0 0 16px rgba(193,102,107,0);}100%{box-shadow:0 0 0 0 rgba(193,102,107,0);}}
+  .sync-bubble{position:fixed;bottom:92px;right:24px;max-width:260px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:12.5px;color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,0.4);z-index:200;}
+  .sync-bubble[hidden]{display:none;}
 
   .modal-overlay{position:fixed;inset:0;background:rgba(10,12,18,0.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
   .modal-overlay[hidden]{display:none;}
@@ -158,6 +165,11 @@
         <div class="field"><label>Nome da ação/evento</label><input type="text" id="a-titulo" required placeholder="Ex: Lançamento de matrículas"></div>
       </div>
       <div class="field"><label>Detalhes de como ocorreu</label><textarea id="a-detalhes" placeholder="Descreva como foi a ação..."></textarea></div>
+      <div class="field">
+        <label>Vincular a um item do Plano de Ações (opcional)</label>
+        <select id="a-plano"><option value="">(nenhuma)</option></select>
+        <p class="desc" style="margin-top:6px;">Se escolher, aquele item do Plano de Ações é marcado como "Concluída" automaticamente.</p>
+      </div>
       <div class="field"><label>Fotos</label><div class="photo-grid" id="a-fotos"></div></div>
       <div class="modal-actions">
         <button type="button" class="btn-danger" id="btn-delete-acao" hidden>Excluir ação</button>
@@ -169,6 +181,10 @@
   </div>
 </div>
 
+<button class="sync-fab" id="sync-btn" title="Comando de voz Sync" hidden>🎙️</button>
+<div class="sync-bubble" id="sync-bubble" hidden></div>
+
+<script src="assistant.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
@@ -230,6 +246,7 @@ let editingReportId = null;
 let acoes = [];
 let editingAcaoId = null;
 let acaoFotos = []; // {dataUrl, legenda}
+let planoAcoes = [];
 
 function escapeHtml(str){ const d=document.createElement('div'); d.textContent=str||''; return d.innerHTML; }
 function formatDateBR(dateStr){ if(!dateStr) return ''; const [y,m,d]=dateStr.split('-'); return `${d}/${m}/${y}`; }
@@ -242,11 +259,40 @@ onAuthStateChanged(auth, async (user) => {
   await loadPolos();
   renderPoloSelect();
   await loadReports();
+  await loadPlanoAcoes();
   renderHistory();
-  newReportForm();
+  await abrirReportSalvoPeloPlano();
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  document.getElementById('sync-btn').hidden = false;
+  if(localStorage.getItem('sync-abrir-nova-acao')){
+    localStorage.removeItem('sync-abrir-nova-acao');
+    openAcaoModal();
+  }
 });
+
+async function loadPlanoAcoes(){
+  if(!selectedPoloId){ planoAcoes = []; return; }
+  const snap = await getDocs(collection(db, 'polos', selectedPoloId, 'planoAcoes'));
+  planoAcoes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  populatePlanoSelect();
+}
+function populatePlanoSelect(){
+  const sel = document.getElementById('a-plano');
+  if(!sel) return;
+  const disponiveis = planoAcoes.filter(p => p.status !== 'Cancelada');
+  sel.innerHTML = '<option value="">(nenhuma)</option>' + disponiveis.map(p =>
+    `<option value="${p.id}">${escapeHtml(p.frente)} — ${escapeHtml(p.acao)}${p.status==='Concluída' ? ' ✓' : ''}</option>`
+  ).join('');
+}
+async function abrirReportSalvoPeloPlano(){
+  const alvo = localStorage.getItem('relatorio-abrir-mes-ano');
+  if(!alvo){ newReportForm(); return; }
+  localStorage.removeItem('relatorio-abrir-mes-ano');
+  const [mes, ano] = alvo.split('-').map(Number);
+  const r = reports.find(x => x.mes === mes && x.ano === ano);
+  if(r){ await loadReportIntoForm(r.id); } else { newReportForm(); }
+}
 
 async function loadPolos(){
   const q = query(collection(db, 'polos'), where('gestores', 'array-contains', currentUser.uid));
@@ -263,6 +309,7 @@ document.getElementById('select-polo').addEventListener('change', async e => {
   selectedPoloId = e.target.value;
   localStorage.setItem('polo-selecionado', selectedPoloId);
   await loadReports();
+  await loadPlanoAcoes();
   renderHistory();
   newReportForm();
 });
@@ -385,6 +432,7 @@ function renderAcoesList(){
       ${grupos[data].map(a => `
         <div class="acao-card" data-id="${a.id}">
           <div class="acao-titulo">${escapeHtml(a.titulo)}</div>
+          ${a.planoAcaoId ? `<div style="font-size:10.5px;color:var(--teal);margin-top:3px;">🔗 Vinculada ao Plano de Ações</div>` : ''}
           ${a.detalhes ? `<div class="acao-detalhes">${escapeHtml(a.detalhes)}</div>` : ''}
           ${a.fotos && a.fotos.length ? `<div class="acao-thumbs">${a.fotos.map(f => `<img src="${f.dataUrl}">`).join('')}</div>` : ''}
         </div>
@@ -433,6 +481,7 @@ function renderAcaoFotoGrid(){
 function openAcaoModal(id=null){
   editingAcaoId = id;
   document.getElementById('acao-form').reset();
+  populatePlanoSelect();
   const btnDel = document.getElementById('btn-delete-acao');
   if(id){
     const a = acoes.find(x => x.id === id);
@@ -440,6 +489,7 @@ function openAcaoModal(id=null){
     document.getElementById('a-data').value = a.data;
     document.getElementById('a-titulo').value = a.titulo;
     document.getElementById('a-detalhes').value = a.detalhes || '';
+    document.getElementById('a-plano').value = a.planoAcaoId || '';
     acaoFotos = (a.fotos || []).map(f => ({...f}));
     btnDel.hidden = false;
   } else {
@@ -461,17 +511,27 @@ document.getElementById('acao-form').addEventListener('submit', async e => {
     titulo: document.getElementById('a-titulo').value.trim(),
     detalhes: document.getElementById('a-detalhes').value.trim(),
     fotos: acaoFotos,
+    planoAcaoId: document.getElementById('a-plano').value || null,
   };
   if(!data.data || !data.titulo) return;
   const statusEl = document.getElementById('save-status');
   statusEl.textContent = 'Salvando ação...';
   try{
     const reportId = await ensureReportContainer();
+    const mes = Number(document.getElementById('f-mes').value);
+    const ano = Number(document.getElementById('f-ano').value);
     if(editingAcaoId){
       await updateDoc(doc(db, 'polos', selectedPoloId, 'relatorios', reportId, 'acoes', editingAcaoId), data);
     } else {
       data.criadoEm = new Date().toISOString();
       await addDoc(collection(db, 'polos', selectedPoloId, 'relatorios', reportId, 'acoes'), data);
+    }
+    if(data.planoAcaoId){
+      await updateDoc(doc(db, 'polos', selectedPoloId, 'planoAcoes', data.planoAcaoId), {
+        status: 'Concluída',
+        evidencia: { relatorioId: reportId, mes, ano, titulo: data.titulo },
+      });
+      await loadPlanoAcoes();
     }
     document.getElementById('modal-acao').hidden = true;
     await loadAcoes(reportId);
@@ -580,6 +640,73 @@ document.getElementById('btn-pdf').addEventListener('click', async () => {
     statusEl.textContent = 'Erro ao gerar PDF: ' + err.message;
   }
 });
+
+/* ================= SYNC — assistente de voz ================= */
+function syncSay(texto){
+  const bubble = document.getElementById('sync-bubble');
+  bubble.textContent = texto;
+  bubble.hidden = false;
+  SyncAssistant.speak(texto);
+  clearTimeout(window.__syncBubbleTimeout);
+  window.__syncBubbleTimeout = setTimeout(() => { bubble.hidden = true; }, 7000);
+}
+SyncAssistant.init((texto) => {
+  const bubble = document.getElementById('sync-bubble');
+  bubble.textContent = `Ouvi: "${texto}"`;
+  bubble.hidden = false;
+  const intent = SyncParse.intent(texto);
+  setTimeout(() => handleSyncIntent(intent, texto), 400);
+});
+document.getElementById('sync-btn').addEventListener('click', () => {
+  if(!SyncAssistant.supported){
+    const bubble = document.getElementById('sync-bubble');
+    bubble.textContent = 'Comando de voz não é suportado neste navegador. Tente pelo Chrome.';
+    bubble.hidden = false;
+    setTimeout(() => { bubble.hidden = true; }, 7000);
+    return;
+  }
+  SyncAssistant.start();
+});
+document.addEventListener('sync-listen-start', () => document.getElementById('sync-btn').classList.add('listening'));
+document.addEventListener('sync-listen-end', () => document.getElementById('sync-btn').classList.remove('listening'));
+document.addEventListener('sync-speak-start', () => document.getElementById('sync-btn').classList.add('speaking'));
+document.addEventListener('sync-speak-end', () => document.getElementById('sync-btn').classList.remove('speaking'));
+
+function handleSyncIntent(intent, texto){
+  switch(intent){
+    case 'abrir_nova_acao': {
+      openAcaoModal();
+      const titulo = SyncParse.titulo(texto);
+      const data = SyncParse.data(texto);
+      if(titulo) document.getElementById('a-titulo').value = titulo;
+      if(data) document.getElementById('a-data').value = data;
+      syncSay('Abri uma nova ação. Agora é só colocar as fotos e os detalhes.');
+      break;
+    }
+    case 'gerar_pdf':
+      syncSay('Gerando o PDF do relatório.');
+      document.getElementById('btn-pdf').click();
+      break;
+    case 'navegar_vendas':
+    case 'navegar_agenda':
+      syncSay('Te levando pro painel principal.');
+      localStorage.setItem('polo-selecionado', selectedPoloId);
+      setTimeout(() => { window.location.href = 'index.html'; }, 900);
+      break;
+    case 'navegar_financeiro':
+      syncSay('Abrindo o Financeiro.');
+      localStorage.setItem('polo-selecionado', selectedPoloId);
+      setTimeout(() => { window.location.href = 'financeiro.html'; }, 900);
+      break;
+    case 'navegar_plano':
+      syncSay('Abrindo o Plano de Ações.');
+      localStorage.setItem('polo-selecionado', selectedPoloId);
+      setTimeout(() => { window.location.href = 'plano-de-acoes.html'; }, 900);
+      break;
+    default:
+      syncSay('Aqui nessa tela eu só abro nova ação ou gero o PDF. Quer tentar de novo?');
+  }
+}
 </script>
 </body>
 </html>
