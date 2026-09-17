@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painel do Polo</title>
+<title>PoloSync</title>
+<link rel="icon" href="favicon-32.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#171B26">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PoloSync">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -128,8 +135,9 @@
 
 <div id="auth-screen">
   <div class="auth-box">
-    <h1>Painel do Polo</h1>
-    <p class="sub" id="auth-subtitle">Entre com seu e-mail e senha</p>
+    <img src="icon-192.png" alt="PoloSync" style="width:64px;height:64px;border-radius:14px;display:block;margin:0 auto 14px auto;">
+    <h1 style="text-align:center;">PoloSync</h1>
+    <p class="sub" id="auth-subtitle" style="text-align:center;">Entre com seu e-mail e senha</p>
     <div class="field"><label>E-mail</label><input type="email" id="auth-email"></div>
     <div class="field"><label>Senha</label><input type="password" id="auth-password"></div>
     <button class="btn-primary" id="btn-auth-submit">Entrar</button>
@@ -157,6 +165,7 @@
       <button data-view="roteiros">Roteiros</button>
       <button id="btn-go-relatorios">Relatórios</button>
       <button id="btn-go-plano">Plano de Ações</button>
+      <button id="btn-go-financeiro">💰 Financeiro</button>
     </div>
   </div>
 
@@ -624,6 +633,10 @@ document.getElementById('btn-go-relatorios').addEventListener('click', () => {
 document.getElementById('btn-go-plano').addEventListener('click', () => {
   if(selectedPoloId) localStorage.setItem('polo-selecionado', selectedPoloId);
   window.location.href = 'plano-de-acoes.html';
+});
+document.getElementById('btn-go-financeiro').addEventListener('click', () => {
+  if(selectedPoloId) localStorage.setItem('polo-selecionado', selectedPoloId);
+  window.location.href = 'financeiro.html';
 });
 document.getElementById('btn-manage-polos').addEventListener('click', async () => {
   renderMyPolosList();
