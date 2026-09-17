@@ -219,6 +219,18 @@
         <div id="motivo-list"></div>
       </div>
     </div>
+    <div style="padding:0 28px 28px 28px;display:flex;gap:20px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:320px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;">
+        <h3 style="font-size:15px;margin-bottom:6px;">📊 Raio-X da Operação (desempenho por gestor)</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin:0 0 14px 0;">Quem responde mais rápido, quem tem mais leads e quem converte mais.</p>
+        <div id="raiox-list"></div>
+      </div>
+      <div style="flex:1;min-width:320px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;">
+        <h3 style="font-size:15px;margin-bottom:6px;">♻️ Leads pra reativar</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin:0 0 14px 0;">Encerrados que ainda podem voltar (adiaram, não concluíram ou preço/documentação).</p>
+        <div id="reativacao-list"></div>
+      </div>
+    </div>
   </div>
 
   <div class="view" id="view-roteiros">
@@ -234,6 +246,10 @@
       <div class="field-row">
         <div class="field"><label>Tipo</label><select id="f-tipo"><option value="b2b">B2B</option><option value="b2c">B2C</option></select></div>
         <div class="field"><label>Origem</label><select id="f-origem"></select></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Responsável pelo lead</label><select id="f-responsavel"></select></div>
+        <div class="field"><label>Campanha/Anúncio (opcional)</label><input type="text" id="f-campanha" placeholder="Ex: Instagram Setembro"></div>
       </div>
       <div class="field-row">
         <div class="field"><label>Contato</label><input type="text" id="f-contato"></div>
@@ -582,6 +598,7 @@ onAuthStateChanged(auth, async (user) => {
     await loadLeads();
     await loadEventos();
     await loadMeta();
+    await loadGestoresAtuais();
     renderVendas();
     renderAgenda();
     checkAndNotify();
@@ -604,6 +621,26 @@ async function promptCreateFirstPolo(){
 }
 
 /* ================= POLOS ================= */
+let gestoresAtuais = []; // {uid, email} do polo selecionado
+async function loadGestoresAtuais(){
+  if(!selectedPoloId){ gestoresAtuais = []; return; }
+  try{
+    const poloSnap = await getDoc(doc(db, 'polos', selectedPoloId));
+    const gestorIds = poloSnap.data().gestores || [];
+    gestoresAtuais = await Promise.all(gestorIds.map(async uidG => {
+      const uSnap = await getDoc(doc(db, 'usuarios', uidG));
+      const email = uSnap.exists() ? uSnap.data().email : uidG;
+      return { uid: uidG, email };
+    }));
+  }catch(e){ gestoresAtuais = []; }
+  populateResponsavelSelect();
+}
+function populateResponsavelSelect(){
+  const sel = document.getElementById('f-responsavel');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">(não definido)</option>' + gestoresAtuais.map(g =>
+    `<option value="${g.uid}">${escapeHtml(g.email)}</option>`).join('');
+}
 async function loadPolos(){
   const q = query(collection(db, 'polos'), where('gestores', 'array-contains', currentUser.uid));
   const snap = await getDocs(q);
@@ -623,7 +660,7 @@ function renderPoloSelect(){
 document.getElementById('select-polo').addEventListener('change', async e => {
   selectedPoloId = e.target.value;
   localStorage.setItem('polo-selecionado', selectedPoloId);
-  await loadLeads(); await loadEventos(); await loadMeta();
+  await loadLeads(); await loadEventos(); await loadMeta(); await loadGestoresAtuais();
   renderVendas(); renderAgenda();
 });
 document.getElementById('btn-go-relatorios').addEventListener('click', () => {
@@ -692,6 +729,7 @@ document.getElementById('btn-add-gestor').addEventListener('click', async () => 
   await updateDoc(doc(db, 'polos', selectedPoloId), { gestores: arrayUnion(targetUid) });
   document.getElementById('new-gestor-email').value = '';
   renderGestoresDoPolo();
+  await loadGestoresAtuais();
 });
 
 /* ================= VENDAS (LEADS) ================= */
@@ -802,6 +840,7 @@ function renderVendas(){
         const updateData = { etapa: stage.id };
         if(stage.id === 'matriculado' && !lead.fechadoEm){ updateData.fechadoEm = todayStr(); }
         if(stage.id === 'aprovado' && !lead.aprovadoEm){ updateData.aprovadoEm = new Date().toISOString(); }
+        if(stage.id !== 'novo' && !lead.primeiroContatoEm){ updateData.primeiroContatoEm = new Date().toISOString(); }
         if(stage.id === 'encerrado'){ updateData.motivoEncerramento = lead.motivoEncerramento || null; }
         await updateDoc(doc(db, 'polos', selectedPoloId, 'leads', id), updateData);
         Object.assign(lead, updateData);
@@ -873,6 +912,60 @@ function renderConversao(){
       <span>${escapeHtml(motivo)}</span><span style="color:var(--text-muted);">${qtd} (${pct}%)</span>
     </div>`;
   }).join('') || '<div style="color:var(--text-muted);font-size:12.5px;">Nenhum lead encerrado ainda.</div>';
+
+  // Raio-X da Operação: desempenho por gestor
+  const raioxBox = document.getElementById('raiox-list');
+  if(raioxBox){
+    const porGestor = {};
+    all.forEach(l => {
+      const key = l.responsavelEmail || '(sem responsável)';
+      if(!porGestor[key]) porGestor[key] = { total:0, matriculados:0, temposContato:[] };
+      porGestor[key].total++;
+      if(l.etapa === 'matriculado') porGestor[key].matriculados++;
+      if(l.primeiroContatoEm && l.criadoEm){
+        const horas = (new Date(l.primeiroContatoEm).getTime() - new Date(l.criadoEm+'T00:00:00').getTime()) / (60*60*1000);
+        if(horas >= 0) porGestor[key].temposContato.push(horas);
+      }
+    });
+    const linhas = Object.entries(porGestor).sort((a,b) => b[1].total - a[1].total);
+    raioxBox.innerHTML = linhas.map(([email, s]) => {
+      const conv = s.total > 0 ? Math.round((s.matriculados/s.total)*100) : 0;
+      const tempoMedio = s.temposContato.length > 0 ? (s.temposContato.reduce((a,b)=>a+b,0)/s.temposContato.length) : null;
+      const tempoLabel = tempoMedio === null ? 'sem dados' : tempoMedio < 24 ? `${tempoMedio.toFixed(1)}h` : `${(tempoMedio/24).toFixed(1)}d`;
+      return `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12.5px;">
+        <span>${escapeHtml(email)}</span>
+        <span style="color:var(--text-muted);">${s.total} leads · ${s.matriculados} matric. (${conv}%) · 1º contato: ${tempoLabel}</span>
+      </div>`;
+    }).join('') || '<div style="color:var(--text-muted);font-size:12.5px;">Sem dados ainda.</div>';
+  }
+
+  // Leads pra reativar
+  const reativacaoBox = document.getElementById('reativacao-list');
+  if(reativacaoBox){
+    const motivosReativaveis = ['Adiou para a próxima entrada','Não concluiu a inscrição online','Preço','Documentação'];
+    const candidatos = leads.filter(l => l.etapa === 'encerrado' && motivosReativaveis.includes(l.motivoEncerramento));
+    reativacaoBox.innerHTML = candidatos.map(l => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12.5px;gap:8px;">
+        <span>${escapeHtml(l.nome)} <span style="color:var(--text-muted);">· ${escapeHtml(l.motivoEncerramento)}</span></span>
+        <button class="meta-edit-btn" data-reativar="${l.id}">Reativar</button>
+      </div>
+    `).join('') || '<div style="color:var(--text-muted);font-size:12.5px;">Nenhum candidato à reativação agora.</div>';
+    reativacaoBox.querySelectorAll('[data-reativar]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const lead = leads.find(l => l.id === btn.dataset.reativar);
+        if(!lead) return;
+        const updateData = {
+          etapa: 'contato', origem: 'Reativação de inscrito anterior',
+          motivoEncerramento: null, proximoFollowUp: todayStr(),
+        };
+        await updateDoc(doc(db, 'polos', selectedPoloId, 'leads', lead.id), updateData);
+        Object.assign(lead, updateData);
+        addTimelineEntry(lead.id, 'etapa', 'Reativado a partir da lista de reativação');
+        await loadLeads();
+        renderVendas();
+      });
+    });
+  }
 }
 
 const ROTEIROS = [
@@ -946,6 +1039,8 @@ function openLeadModal(id=null){
     document.getElementById('f-origem').value = lead.origem || '';
     document.getElementById('f-contato').value = lead.contato || '';
     document.getElementById('f-valor').value = lead.valor || '';
+    document.getElementById('f-responsavel').value = lead.responsavelUid || '';
+    document.getElementById('f-campanha').value = lead.campanha || '';
     document.getElementById('f-etapa').value = lead.etapa;
     document.getElementById('f-followup').value = lead.proximoFollowUp || '';
     document.getElementById('f-notas').value = lead.notas || '';
@@ -963,10 +1058,15 @@ function openLeadModal(id=null){
 document.getElementById('btn-cancel-lead').addEventListener('click', () => document.getElementById('modal-lead').hidden = true);
 document.getElementById('lead-form').addEventListener('submit', async e => {
   e.preventDefault();
+  const respUid = document.getElementById('f-responsavel').value;
+  const respGestor = gestoresAtuais.find(g => g.uid === respUid);
   const data = {
     nome: document.getElementById('f-nome').value.trim(),
     tipo: document.getElementById('f-tipo').value,
     origem: document.getElementById('f-origem').value.trim(),
+    campanha: document.getElementById('f-campanha').value.trim(),
+    responsavelUid: respUid || null,
+    responsavelEmail: respGestor ? respGestor.email : null,
     contato: document.getElementById('f-contato').value.trim(),
     valor: document.getElementById('f-valor').value || null,
     etapa: document.getElementById('f-etapa').value,
@@ -980,12 +1080,14 @@ document.getElementById('lead-form').addEventListener('submit', async e => {
     const etapaAnterior = leadAntigo ? leadAntigo.etapa : null;
     if(data.etapa === 'matriculado' && leadAntigo && !leadAntigo.fechadoEm){ data.fechadoEm = todayStr(); }
     if(data.etapa === 'aprovado' && leadAntigo && !leadAntigo.aprovadoEm){ data.aprovadoEm = new Date().toISOString(); }
+    if(data.etapa !== 'novo' && leadAntigo && !leadAntigo.primeiroContatoEm){ data.primeiroContatoEm = new Date().toISOString(); }
     await updateDoc(doc(db, 'polos', selectedPoloId, 'leads', editingLeadId), data);
     if(etapaAnterior && etapaAnterior !== data.etapa){
       addTimelineEntry(editingLeadId, 'etapa', `Movido de "${stageLabel(etapaAnterior)}" para "${stageLabel(data.etapa)}"`);
     }
   } else {
     data.criadoEm = todayStr();
+    if(data.etapa !== 'novo'){ data.primeiroContatoEm = new Date().toISOString(); }
     const docRef = await addDoc(collection(db, 'polos', selectedPoloId, 'leads'), data);
     addTimelineEntry(docRef.id, 'criado', 'Lead criado');
   }
@@ -1366,10 +1468,10 @@ function csvEscape(v){ return `"${String(v ?? '').replace(/"/g,'""').replace(/\n
 
 document.getElementById('btn-export-leads').addEventListener('click', () => {
   const rows = getFilteredLeads();
-  const header = ['Nome','Tipo','Origem','Contato','Valor','Etapa','Follow-up','Fechado em','Notas'];
+  const header = ['Nome','Tipo','Origem','Campanha','Responsável','Contato','Valor','Etapa','Follow-up','Fechado em','Notas'];
   const lines = [header.map(csvEscape).join(';')];
   rows.forEach(l => {
-    lines.push([l.nome, l.tipo, l.origem, l.contato, l.valor, stageLabel(l.etapa), l.proximoFollowUp, l.fechadoEm, l.notas].map(csvEscape).join(';'));
+    lines.push([l.nome, l.tipo, l.origem, l.campanha, l.responsavelEmail, l.contato, l.valor, stageLabel(l.etapa), l.proximoFollowUp, l.fechadoEm, l.notas].map(csvEscape).join(';'));
   });
   const poloNome = (polos.find(p => p.id === selectedPoloId) || {}).nome || 'polo';
   downloadCSV(lines.join('\n'), `leads-${poloNome.replace(/\s+/g,'-')}-${todayStr()}.csv`);
