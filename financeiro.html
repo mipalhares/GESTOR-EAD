@@ -112,6 +112,7 @@
     </div>
     <div class="spacer"></div>
     <button class="small-btn" id="btn-export-fin">⬇️ Exportar CSV</button>
+    <button class="small-btn" id="btn-import-fin">📄 Importar CSV</button>
     <button class="btn-primary" id="btn-new-tx">+ Nova transação</button>
   </div>
 
@@ -159,6 +160,38 @@
         <button type="submit" class="btn-primary">Salvar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="csv-overlay" hidden>
+  <div class="modal" style="max-width:580px;">
+    <h2>Importar transações de uma planilha CSV</h2>
+    <p class="hint">Ideal pra colar os repasses recebidos de uma vez. A primeira linha deve ter os nomes das colunas — pode ser de qualquer planilha, você indica o que é o quê a seguir.</p>
+    <div class="field"><input type="file" id="csv-file" accept=".csv,text/csv"></div>
+    <div id="csv-mapping" hidden>
+      <p class="hint" id="csv-count-label"></p>
+      <div class="field"><label>Descrição (obrigatório)</label><select id="map-descricao"></select></div>
+      <div class="field-row">
+        <div class="field"><label>Valor (obrigatório)</label><select id="map-valor"></select></div>
+        <div class="field"><label>Data (obrigatório)</label><select id="map-data"></select></div>
+      </div>
+      <div class="field"><label>Tipo (opcional — coluna com "repasse"/"receita"/"despesa")</label><select id="map-tipo"></select></div>
+      <div class="field">
+        <label>Tipo padrão pra linhas sem essa informação</label>
+        <select id="csv-tipo-padrao">
+          <option value="repasse">Repasse recebido</option>
+          <option value="receita">Receita do polo</option>
+          <option value="despesa">Despesa</option>
+        </select>
+      </div>
+      <div class="field"><label>Polo (opcional — coluna com o nome do polo, pra planilha com vários polos juntos)</label><select id="map-polo"></select></div>
+      <p class="hint" style="color:var(--text-muted);">Sem essa coluna, tudo é importado pro polo selecionado no topo (<span id="csv-polo-atual"></span>).</p>
+    </div>
+    <div class="modal-actions">
+      <div style="flex:1"></div>
+      <button type="button" class="btn-secondary" id="csv-cancel">Cancelar</button>
+      <button type="button" class="btn-primary" id="csv-import" style="width:auto;" hidden>Importar</button>
+    </div>
   </div>
 </div>
 
@@ -403,6 +436,146 @@ document.getElementById('btn-export-fin').addEventListener('click', () => {
   a.href = url; a.download = `financeiro-${poloNome.replace(/\s+/g,'-')}-${d.getMonth()+1}-${d.getFullYear()}.csv`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+});
+
+/* ---- Importação de planilha CSV ---- */
+let csvHeaders = [];
+let csvRows = [];
+
+function parseCSV(text){
+  const firstLine = text.split(/\r?\n/)[0] || '';
+  const delimiter = (firstLine.match(/;/g)||[]).length > (firstLine.match(/,/g)||[]).length ? ';' : ',';
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){ if(text[i+1] === '"'){ field+='"'; i++; } else { inQuotes=false; } }
+      else field += c;
+    } else {
+      if(c === '"'){ inQuotes = true; }
+      else if(c === delimiter){ row.push(field); field=''; }
+      else if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else if(c === '\r'){ /* ignora */ }
+      else field += c;
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r => !(r.length===1 && r[0]===''));
+}
+
+function parseValorBR(str){
+  if(str === undefined || str === null) return 0;
+  let s = String(str).trim().replace(/[^\d,.-]/g, '');
+  if(s.includes(',') && s.includes('.')){ s = s.replace(/\./g,'').replace(',', '.'); }
+  else if(s.includes(',')){ s = s.replace(',', '.'); }
+  const n = Number(s);
+  return isNaN(n) ? 0 : n;
+}
+function parseDataFlexivel(str){
+  if(!str) return null;
+  const s = String(str).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if(m){
+    let ano = m[3].length === 2 ? '20'+m[3] : m[3];
+    return `${ano}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+  }
+  return null;
+}
+
+document.getElementById('btn-import-fin').addEventListener('click', () => {
+  document.getElementById('csv-file').value = '';
+  document.getElementById('csv-mapping').hidden = true;
+  document.getElementById('csv-import').hidden = true;
+  const poloAtual = (polos.find(p => p.id === selectedPoloId) || {}).nome || '';
+  document.getElementById('csv-polo-atual').textContent = poloAtual;
+  document.getElementById('csv-overlay').hidden = false;
+});
+document.getElementById('csv-cancel').addEventListener('click', () => document.getElementById('csv-overlay').hidden = true);
+document.getElementById('csv-overlay').addEventListener('click', e => { if(e.target.id === 'csv-overlay') document.getElementById('csv-overlay').hidden = true; });
+
+function guessColumn(keywords){
+  return csvHeaders.findIndex(h => keywords.some(k => (h||'').toLowerCase().includes(k)));
+}
+function populateCsvMapping(){
+  const opts = ['<option value="-1">(nenhuma)</option>'].concat(csvHeaders.map((h,i) => `<option value="${i}">${escapeHtml(h)}</option>`)).join('');
+  ['map-descricao','map-valor','map-data','map-tipo','map-polo'].forEach(id => document.getElementById(id).innerHTML = opts);
+  const guesses = {
+    'map-descricao': guessColumn(['descri','desc','hist[oó]rico','observa']),
+    'map-valor': guessColumn(['valor','repasse','montante','r$']),
+    'map-data': guessColumn(['data','m[eê]s','compet[eê]ncia']),
+    'map-tipo': guessColumn(['tipo']),
+    'map-polo': guessColumn(['polo','unidade']),
+  };
+  Object.entries(guesses).forEach(([id, idx]) => { if(idx >= 0) document.getElementById(id).value = String(idx); });
+}
+
+document.getElementById('csv-file').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const text = await file.text();
+  const rows = parseCSV(text);
+  if(rows.length < 2){ alert('Não consegui encontrar linhas de dados nesse arquivo.'); return; }
+  csvHeaders = rows[0];
+  csvRows = rows.slice(1);
+  populateCsvMapping();
+  document.getElementById('csv-count-label').textContent = `${csvRows.length} linha(s) encontrada(s). Diga qual coluna é cada coisa:`;
+  document.getElementById('csv-mapping').hidden = false;
+  document.getElementById('csv-import').hidden = false;
+});
+
+function identificarTipo(valor, padrao){
+  const t = (valor || '').toLowerCase();
+  if(t.includes('repasse')) return 'repasse';
+  if(t.includes('receita')) return 'receita';
+  if(t.includes('despesa') || t.includes('gasto') || t.includes('custo')) return 'despesa';
+  return padrao;
+}
+
+document.getElementById('csv-import').addEventListener('click', async () => {
+  const idxDesc = Number(document.getElementById('map-descricao').value);
+  const idxValor = Number(document.getElementById('map-valor').value);
+  const idxData = Number(document.getElementById('map-data').value);
+  const idxTipo = Number(document.getElementById('map-tipo').value);
+  const idxPolo = Number(document.getElementById('map-polo').value);
+  const tipoPadrao = document.getElementById('csv-tipo-padrao').value;
+  if(idxDesc < 0 || idxValor < 0 || idxData < 0){
+    alert('Selecione as colunas de Descrição, Valor e Data — esses três são obrigatórios.');
+    return;
+  }
+  const btn = document.getElementById('csv-import');
+  btn.textContent = 'Importando...'; btn.disabled = true;
+  let count = 0, semPoloEncontrado = 0;
+  for(const row of csvRows){
+    const descricao = (row[idxDesc] || '').trim();
+    const valor = parseValorBR(row[idxValor]);
+    const data = parseDataFlexivel(row[idxData]);
+    if(!descricao || !data || !valor) continue;
+    const tipo = idxTipo >= 0 ? identificarTipo(row[idxTipo], tipoPadrao) : tipoPadrao;
+
+    let poloIdAlvo = selectedPoloId;
+    if(idxPolo >= 0){
+      const nomePoloTexto = (row[idxPolo] || '').trim().toLowerCase();
+      const poloEncontrado = polos.find(p => p.nome.toLowerCase() === nomePoloTexto || p.nome.toLowerCase().includes(nomePoloTexto));
+      if(poloEncontrado){ poloIdAlvo = poloEncontrado.id; }
+      else { semPoloEncontrado++; continue; }
+    }
+
+    const docData = { tipo, descricao, valor, data };
+    if(tipo === 'despesa') docData.categoria = 'Outros';
+    docData.criadoEm = new Date().toISOString();
+    await addDoc(collection(db, 'polos', poloIdAlvo, 'financeiro'), docData);
+    count++;
+  }
+  btn.textContent = 'Importar'; btn.disabled = false;
+  document.getElementById('csv-overlay').hidden = true;
+  await loadTransacoes();
+  render();
+  let msg = `${count} transação(ões) importada(s) com sucesso.`;
+  if(semPoloEncontrado > 0) msg += ` ${semPoloEncontrado} linha(s) ignorada(s) por não bater com nenhum polo seu.`;
+  alert(msg);
 });
 
 /* ================= SYNC — assistente de voz ================= */
