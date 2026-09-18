@@ -126,6 +126,7 @@
          /(compromisso|evento|prova|aula|reuni[ãa]o|atendimento|visita)/.test(t)){
         return 'criar_evento';
       }
+      if(/organiza(r)?\s+(os\s+)?leads|separa(r)?\s+(os\s+)?leads|classifica(r)?\s+(os\s+)?leads/.test(t)) return 'organizar_leads';
       if(/nov[ao]\s+a[çc][ãa]o/.test(t) || (/abr[ae]/.test(t) && /a[çc][ãa]o/.test(t))) return 'abrir_nova_acao';
       if(/nov[ao]\s+evento/.test(t) || (/abr[ae]/.test(t) && /evento/.test(t) && !/a[çc][ãa]o/.test(t))) return 'abrir_novo_evento';
       if(/nov[ao]\s+lead/.test(t) || (/abr[ae]/.test(t) && /lead/.test(t))) return 'abrir_novo_lead';

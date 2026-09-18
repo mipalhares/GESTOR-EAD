@@ -80,6 +80,35 @@ automaticamente no navegador antes de salvar, pra caber nos limites do banco
 gratuito. Ficam ótimas pra visualizar na tela e no PDF, mas não servem pra
 impressão em alta qualidade. Recomendo no máximo 6-8 fotos por relatório.
 
+## Correção: telas travando em "Carregando..."
+Todas as 4 páginas agora mostram uma mensagem de erro clara em vez de
+travar pra sempre no "Carregando..." — isso normalmente acontece quando as
+regras do Firestore não foram publicadas depois de uma atualização. Se
+aparecer isso, é só ir no Firebase Console > Firestore > Regras, conferir
+se o conteúdo bate com o `firestore.rules` mais recente, e publicar.
+
+## Organização automática de leads (o "Sync" analisa e classifica sozinho)
+Agora o Sync consegue olhar as anotações de um lead e decidir sozinho em
+qual etapa ele deveria estar — sem precisar de IA paga, usando reconhecimento
+de palavras-chave típicas do processo (ex: "já aprovado", "assinou o
+contrato", "não quer mais", "mandei o link"...).
+
+Isso acontece em três lugares:
+- **Botão "🤖 Organizar leads"** (aba Vendas): analisa todos os leads que
+  estão em "Lead novo" com alguma anotação, e move automaticamente os que
+  já têm indício de estarem mais adiantados (ou encerrados)
+- **Comando de voz "Sync, organize os leads"**: faz a mesma coisa, falando
+  um resumo do que mudou
+- **Importação em massa (WhatsApp e CSV)**: cada contato já entra
+  classificado na etapa certa (você ainda pode ajustar manualmente antes
+  de confirmar, no caso do WhatsApp)
+
+Isso não é uma IA de verdade (não interpreta qualquer frase) — é um
+classificador por palavras-chave, então funciona melhor quanto mais as
+anotações usarem termos parecidos com os do processo oficial (aprovado,
+matriculado, contrato assinado, etc). Não tem erro grave possível: o pior
+caso é simplesmente não mudar a etapa quando não reconhece nada.
+
 ## Novo: comando de voz "Sync" (`assistant.js`)
 Botão flutuante 🎙️ no canto inferior direito, em todas as telas. Clique e
 fale — funciona 100% no navegador (Web Speech API), sem custo, mas

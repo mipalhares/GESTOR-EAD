@@ -125,6 +125,7 @@
   .bulk-item input[type="checkbox"]{width:auto;margin-top:9px;}
   .bulk-item .bulk-fields{flex:1;display:flex;flex-direction:column;gap:6px;}
   .bulk-item .bulk-fields input{width:100%;}
+  .bulk-item .bulk-fields select{width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:6px;font-size:12px;}
   .bulk-item .bulk-notes-preview{font-size:11px;color:var(--text-muted);max-height:36px;overflow:hidden;}
   .timeline-item{font-size:12px;padding:6px 0;border-bottom:1px solid var(--border);}
   .timeline-item .t-texto{color:var(--text);}
@@ -186,6 +187,7 @@
       <input id="search" type="text" placeholder="Buscar por nome ou contato...">
       <div class="spacer"></div>
       <button class="small-btn" id="btn-export-leads">⬇️ Exportar CSV</button>
+      <button class="small-btn" id="btn-organizar-leads" title="Analisa as anotações dos leads em 'Lead novo' e reclassifica pra etapa certa">🤖 Organizar leads</button>
       <button class="small-btn" id="btn-import-csv">📄 Importar CSV</button>
       <button id="btn-whatsapp">💬 Da conversa do WhatsApp</button>
       <button id="btn-whatsapp-bulk">📥 Importar vários</button>
@@ -525,6 +527,69 @@ async function renderLeadTimeline(leadId){
 }
 
 function stageLabel(id){ return (STAGES.find(s => s.id === id) || {}).label || id; }
+
+/* ================= CLASSIFICAÇÃO AUTOMÁTICA (organização de leads) ================= */
+function inferirEtapa(textoBruto){
+  const t = (textoBruto || '').toLowerCase();
+  if(/matricul|pagou a? ?primeira parcela|pagamento confirmado|efetuou o pagamento|vaga garantida/.test(t)) return 'matriculado';
+  if(/contrato assinado|assinou o contrato|enviei o contrato/.test(t)) return 'contrato';
+  if(/aprovad[oa] no sistema|foi aprovad[oa]|saiu (o )?resultado/.test(t)) return 'aprovado';
+  if(/inscri[çc][ãa]o conclu[íi]da|finalizou a inscri[çc][ãa]o|concluiu a inscri[çc][ãa]o|terminou a inscri[çc][ãa]o/.test(t)) return 'inscricao';
+  if(/link (de inscri[çc][ãa]o )?enviado|mandei o link|enviei o link|passei o link/.test(t)) return 'link';
+  if(/qualificad[oa]|confirmou interesse|quer se inscrever|decidiu fazer|topou fazer/.test(t)) return 'qualificado';
+  if(/desisti|n[ãa]o quer mais|cancelou|encerrad[oa]|n[ãa]o tem interesse|n[ãa]o vai fazer/.test(t)) return 'encerrado';
+  if(/j[áa] conversei|respondeu|atendid[oa]|em contato|conversamos|falei com|liguei para/.test(t)) return 'contato';
+  return 'novo';
+}
+function inferirMotivo(textoBruto){
+  const t = (textoBruto || '').toLowerCase();
+  if(/pre[çc]o|caro|valor alto/.test(t)) return 'Preço';
+  if(/n[ãa]o (tem|oferece) (o curso|esse curso)|curso n[ãa]o/.test(t)) return 'Curso não ofertado';
+  if(/pr[óo]xima (entrada|turma)|adiou|depois eu vejo/.test(t)) return 'Adiou para a próxima entrada';
+  if(/outra institui[çc][ãa]o|outra faculdade|outro polo/.test(t)) return 'Escolheu outra instituição';
+  if(/n[ãa]o (concluiu|finalizou|terminou) a inscri[çc][ãa]o/.test(t)) return 'Não concluiu a inscrição online';
+  if(/aprovad[oa].*n[ãa]o pagou|n[ãa]o pagou/.test(t)) return 'Aprovado mas não pagou';
+  if(/documenta[çc][ãa]o|documento (pendente|faltando)/.test(t)) return 'Documentação';
+  if(/sem (resposta|contato)|n[ãa]o responde|sumiu/.test(t)) return 'Sem contato após 7 tentativas';
+  return null;
+}
+async function organizarLeadsAutomaticamente(){
+  const candidatos = leads.filter(l => l.etapa === 'novo' && (l.notas || '').trim());
+  if(candidatos.length === 0){
+    return { total: 0, mudancas: 0, resumo: 'Não achei nenhum lead em "Lead novo" com anotações pra analisar.' };
+  }
+  let mudancas = 0;
+  const porEtapa = {};
+  for(const lead of candidatos){
+    const novaEtapa = inferirEtapa(lead.notas);
+    if(novaEtapa !== 'novo' && novaEtapa !== lead.etapa){
+      const updateData = { etapa: novaEtapa };
+      if(novaEtapa === 'encerrado'){ updateData.motivoEncerramento = inferirMotivo(lead.notas) || 'Sem contato após 7 tentativas'; }
+      if(novaEtapa === 'aprovado'){ updateData.aprovadoEm = new Date().toISOString(); }
+      if(novaEtapa === 'matriculado'){ updateData.fechadoEm = todayStr(); }
+      updateData.primeiroContatoEm = lead.primeiroContatoEm || new Date().toISOString();
+      await updateDoc(doc(db, 'polos', selectedPoloId, 'leads', lead.id), updateData);
+      Object.assign(lead, updateData);
+      addTimelineEntry(lead.id, 'etapa', `Organizado automaticamente pelo Sync: "Lead novo" → "${stageLabel(novaEtapa)}"`);
+      porEtapa[novaEtapa] = (porEtapa[novaEtapa] || 0) + 1;
+      mudancas++;
+    }
+  }
+  const partes = Object.entries(porEtapa).map(([etapa,qtd]) => `${qtd} pra ${stageLabel(etapa)}`);
+  const resumo = mudancas === 0
+    ? `Analisei ${candidatos.length} lead${candidatos.length>1?'s':''} com anotações, mas nenhum tinha informação suficiente pra mudar de etapa.`
+    : `Analisei ${candidatos.length} lead${candidatos.length>1?'s':''} e organizei ${mudancas}: ${partes.join(', ')}.`;
+  return { total: candidatos.length, mudancas, resumo };
+}
+document.getElementById('btn-organizar-leads')?.addEventListener('click', async () => {
+  const btn = document.getElementById('btn-organizar-leads');
+  btn.disabled = true; btn.textContent = '🤖 Organizando...';
+  const resultado = await organizarLeadsAutomaticamente();
+  btn.disabled = false; btn.textContent = '🤖 Organizar leads';
+  await loadLeads();
+  renderVendas();
+  alert(resultado.resumo);
+});
 function checkAndNotify(){
   if(!('Notification' in window) || Notification.permission !== 'granted') return;
   const atrasados = leads.filter(l => followUpStatus(l.proximoFollowUp, l.etapa) === 'overdue');
@@ -601,22 +666,27 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('user-email').textContent = user.email;
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
-    await loadPolos();
-    if(polos.length === 0){
-      await promptCreateFirstPolo();
-    }
-    renderPoloSelect();
-    await loadLeads();
-    await loadEventos();
-    await loadMeta();
-    await loadGestoresAtuais();
-    renderVendas();
-    renderAgenda();
-    document.getElementById('sync-btn').hidden = false;
-    checkAndNotify();
-    if(!window.__notifyIntervalStarted){
-      window.__notifyIntervalStarted = true;
-      setInterval(checkAndNotify, 20 * 60 * 1000);
+    try{
+      await loadPolos();
+      if(polos.length === 0){
+        await promptCreateFirstPolo();
+      }
+      renderPoloSelect();
+      await loadLeads();
+      await loadEventos();
+      await loadMeta();
+      await loadGestoresAtuais();
+      renderVendas();
+      renderAgenda();
+      document.getElementById('sync-btn').hidden = false;
+      checkAndNotify();
+      if(!window.__notifyIntervalStarted){
+        window.__notifyIntervalStarted = true;
+        setInterval(checkAndNotify, 20 * 60 * 1000);
+      }
+    }catch(err){
+      console.error(err);
+      alert('Erro ao carregar seus dados: ' + err.message + '\n\nSe aparecer "permission-denied", as regras do Firestore provavelmente não foram publicadas — verifique no Firebase Console.');
     }
   } else {
     currentUser = null;
@@ -1186,7 +1256,7 @@ document.getElementById('bulk-parse').addEventListener('click', () => {
   const blocks = splitIntoBlocks(raw);
   bulkItems = blocks.map(b => {
     const parsed = parseWhatsappText(b);
-    return { include: true, nome: parsed.nome, contato: parsed.contato, notas: parsed.notas };
+    return { include: true, nome: parsed.nome, contato: parsed.contato, notas: parsed.notas, etapa: inferirEtapa(b) };
   });
   renderBulkPreview();
   document.getElementById('bulk-step-1').hidden = true;
@@ -1195,7 +1265,10 @@ document.getElementById('bulk-parse').addEventListener('click', () => {
 });
 
 function renderBulkPreview(){
-  document.getElementById('bulk-count-label').textContent = `${bulkItems.length} contato(s) identificado(s). Revise antes de importar:`;
+  const classificados = bulkItems.filter(i => i.etapa !== 'novo').length;
+  document.getElementById('bulk-count-label').textContent = classificados > 0
+    ? `${bulkItems.length} contato(s) identificado(s) — o Sync já classificou ${classificados} pela conversa. Revise antes de importar:`
+    : `${bulkItems.length} contato(s) identificado(s). Revise antes de importar:`;
   const list = document.getElementById('bulk-preview-list');
   list.innerHTML = '';
   bulkItems.forEach((item, idx) => {
@@ -1206,13 +1279,16 @@ function renderBulkPreview(){
       <div class="bulk-fields">
         <input type="text" placeholder="Nome" value="${escapeHtml(item.nome)}">
         <input type="text" placeholder="Telefone/contato" value="${escapeHtml(item.contato)}">
+        <select class="bulk-etapa-select">${STAGES.map(s => `<option value="${s.id}" ${s.id===item.etapa?'selected':''}>${s.label}</option>`).join('')}</select>
         ${item.notas ? `<div class="bulk-notes-preview">${escapeHtml(item.notas)}</div>` : ''}
       </div>
     `;
     const [chk, nomeInput, contatoInput] = row.querySelectorAll('input');
+    const etapaSelect = row.querySelector('.bulk-etapa-select');
     chk.addEventListener('change', e => { item.include = e.target.checked; });
     nomeInput.addEventListener('input', e => { item.nome = e.target.value; });
     contatoInput.addEventListener('input', e => { item.contato = e.target.value; });
+    etapaSelect.addEventListener('change', e => { item.etapa = e.target.value; });
     list.appendChild(row);
   });
 }
@@ -1224,17 +1300,26 @@ document.getElementById('bulk-confirm').addEventListener('click', async () => {
   btn.textContent = 'Importando...';
   btn.disabled = true;
   for(const item of selected){
-    await addDoc(collection(db, 'polos', selectedPoloId, 'leads'), {
+    const motivo = item.etapa === 'encerrado' ? (inferirMotivo(item.notas) || 'Sem contato após 7 tentativas') : null;
+    const docData = {
       nome: item.nome.trim(),
       tipo: 'b2c',
       origem: 'Balcão ou WhatsApp do polo',
       contato: item.contato.trim(),
       valor: null,
-      etapa: 'novo',
+      etapa: item.etapa || 'novo',
       proximoFollowUp: todayStr(),
       notas: item.notas || '',
       criadoEm: todayStr(),
-    });
+    };
+    if(item.etapa && item.etapa !== 'novo'){ docData.primeiroContatoEm = new Date().toISOString(); }
+    if(item.etapa === 'aprovado'){ docData.aprovadoEm = new Date().toISOString(); }
+    if(item.etapa === 'matriculado'){ docData.fechadoEm = todayStr(); }
+    if(item.etapa === 'encerrado'){ docData.motivoEncerramento = motivo; }
+    const docRef = await addDoc(collection(db, 'polos', selectedPoloId, 'leads'), docData);
+    addTimelineEntry(docRef.id, 'criado', item.etapa && item.etapa !== 'novo'
+      ? `Lead criado e já classificado pelo Sync como "${stageLabel(item.etapa)}"`
+      : 'Lead criado');
   }
   btn.textContent = 'Importar selecionados';
   btn.disabled = false;
@@ -1316,6 +1401,7 @@ document.getElementById('csv-import').addEventListener('click', async () => {
   const btn = document.getElementById('csv-import');
   btn.textContent = 'Importando...'; btn.disabled = true;
   let count = 0;
+  let classificados = 0;
   for(const row of csvRows){
     const nome = (row[idxNome] || '').trim();
     if(!nome) continue;
@@ -1323,17 +1409,25 @@ document.getElementById('csv-import').addEventListener('click', async () => {
     const origemRaw = idxOrigem >= 0 ? (row[idxOrigem]||'').trim() : '';
     const origem = ORIGENS.find(o => o.toLowerCase() === origemRaw.toLowerCase()) || (origemRaw ? 'Outro' : '');
     const notas = idxNotas >= 0 ? (row[idxNotas]||'').trim() : '';
-    await addDoc(collection(db, 'polos', selectedPoloId, 'leads'), {
-      nome, tipo:'b2c', origem, contato, valor:null, etapa:'novo',
+    const etapa = notas ? inferirEtapa(notas) : 'novo';
+    if(etapa !== 'novo') classificados++;
+    const docData = {
+      nome, tipo:'b2c', origem, contato, valor:null, etapa,
       proximoFollowUp: todayStr(), notas, criadoEm: todayStr(),
-    });
+    };
+    if(etapa !== 'novo'){ docData.primeiroContatoEm = new Date().toISOString(); }
+    if(etapa === 'aprovado'){ docData.aprovadoEm = new Date().toISOString(); }
+    if(etapa === 'matriculado'){ docData.fechadoEm = todayStr(); }
+    if(etapa === 'encerrado'){ docData.motivoEncerramento = inferirMotivo(notas) || 'Sem contato após 7 tentativas'; }
+    const docRef = await addDoc(collection(db, 'polos', selectedPoloId, 'leads'), docData);
+    addTimelineEntry(docRef.id, 'criado', etapa !== 'novo' ? `Lead criado e já classificado pelo Sync como "${stageLabel(etapa)}"` : 'Lead criado');
     count++;
   }
   btn.textContent = 'Importar'; btn.disabled = false;
   document.getElementById('csv-overlay').hidden = true;
   await loadLeads();
   renderVendas();
-  alert(`${count} lead(s) importado(s) com sucesso.`);
+  alert(`${count} lead(s) importado(s) com sucesso.${classificados > 0 ? ` O Sync já classificou ${classificados} direto pela etapa certa, com base nas notas.` : ''}`);
 });
 
 /* ================= AGENDA (EVENTOS) ================= */
@@ -1539,7 +1633,7 @@ document.addEventListener('sync-listen-end', () => document.getElementById('sync
 document.addEventListener('sync-speak-start', () => document.getElementById('sync-btn').classList.add('speaking'));
 document.addEventListener('sync-speak-end', () => document.getElementById('sync-btn').classList.remove('speaking'));
 
-function handleSyncIntent(intent, texto){
+async function handleSyncIntent(intent, texto){
   switch(intent){
     case 'criar_evento': {
       const titulo = SyncParse.titulo(texto);
@@ -1566,6 +1660,15 @@ function handleSyncIntent(intent, texto){
       openLeadModal();
       syncSay('Abri um novo lead pra você preencher.');
       break;
+    case 'organizar_leads': {
+      document.querySelector('.maintabs button[data-view="vendas"]').click();
+      syncSay('Deixa comigo, já vou analisar seus leads.');
+      const resultado = await organizarLeadsAutomaticamente();
+      await loadLeads();
+      renderVendas();
+      syncSay(resultado.resumo);
+      break;
+    }
     case 'abrir_nova_acao':
       syncSay('A tela de ações é a de Relatórios. Te levando pra lá.');
       localStorage.setItem('polo-selecionado', selectedPoloId);
