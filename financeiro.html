@@ -10,6 +10,7 @@
 <meta name="theme-color" content="#171B26">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="PoloSync">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -75,6 +76,15 @@
   .field input,.field select,.field textarea{width:100%;background:var(--panel-alt);border:1px solid var(--border);color:var(--text);padding:9px 11px;border-radius:7px;font-family:'Inter';font-size:13.5px;}
   .field-row{display:flex;gap:10px;}
   .field-row .field{flex:1;}
+  .pdf-item{background:var(--panel-alt);border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;gap:8px;align-items:flex-start;}
+  .pdf-item input[type="checkbox"]{width:auto;margin-top:9px;}
+  .pdf-item .pi-fields{flex:1;display:flex;flex-direction:column;gap:6px;}
+  .pdf-item .pi-row{display:flex;gap:6px;}
+  .pdf-item input, .pdf-item select{background:var(--panel);border:1px solid var(--border);color:var(--text);padding:7px 9px;border-radius:6px;font-size:12px;}
+  .pdf-item .pi-desc{flex:2;}
+  .pdf-item .pi-valor{flex:1;}
+  .pdf-item .pi-data{flex:1;}
+  .pdf-item .pi-tipo{flex:1;}
   .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:10px;}
   #loading-screen{padding:60px;text-align:center;color:var(--text-muted);}
   .sync-fab{position:fixed;bottom:24px;right:24px;width:58px;height:58px;border-radius:50%;background:var(--gold);color:#1B1B14;border:none;font-size:24px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.4);z-index:200;display:flex;align-items:center;justify-content:center;transition:transform .15s;}
@@ -165,9 +175,15 @@
 
 <div class="modal-overlay" id="csv-overlay" hidden>
   <div class="modal" style="max-width:580px;">
-    <h2>Importar transações de uma planilha CSV</h2>
-    <p class="hint">Ideal pra colar os repasses recebidos de uma vez. A primeira linha deve ter os nomes das colunas — pode ser de qualquer planilha, você indica o que é o quê a seguir.</p>
-    <div class="field"><input type="file" id="csv-file" accept=".csv,text/csv"></div>
+    <h2>Importar transações (planilha ou PDF)</h2>
+    <p class="hint">Aceita CSV/Excel exportado como CSV, ou um PDF com os repasses (extrato, comprovante, relação). Ideal pra colar os repasses recebidos de uma vez.</p>
+    <div class="field"><input type="file" id="csv-file" accept=".csv,text/csv,.pdf,application/pdf"></div>
+
+    <div id="pdf-preview" hidden>
+      <p class="hint" id="pdf-count-label"></p>
+      <div id="pdf-items-list" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
     <div id="csv-mapping" hidden>
       <p class="hint" id="csv-count-label"></p>
       <div class="field"><label>Descrição (obrigatório)</label><select id="map-descricao"></select></div>
@@ -488,6 +504,7 @@ function parseDataFlexivel(str){
 document.getElementById('btn-import-fin').addEventListener('click', () => {
   document.getElementById('csv-file').value = '';
   document.getElementById('csv-mapping').hidden = true;
+  document.getElementById('pdf-preview').hidden = true;
   document.getElementById('csv-import').hidden = true;
   const poloAtual = (polos.find(p => p.id === selectedPoloId) || {}).nome || '';
   document.getElementById('csv-polo-atual').textContent = poloAtual;
@@ -512,9 +529,103 @@ function populateCsvMapping(){
   Object.entries(guesses).forEach(([id, idx]) => { if(idx >= 0) document.getElementById(id).value = String(idx); });
 }
 
+/* ---- Leitura de PDF ---- */
+let pdfItems = []; // {include, descricao, valor, data, tipo}
+let modoImportacao = 'csv'; // 'csv' ou 'pdf'
+
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+async function extrairTextoPDF(file){
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  let texto = '';
+  for(let i = 1; i <= pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    texto += content.items.map(it => it.str).join(' ') + '\n';
+  }
+  return texto;
+}
+
+function extrairCandidatosDoPDF(texto){
+  const linhas = texto.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const reValor = /R\$?\s?(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2})/;
+  const reData = /(\d{2}\/\d{2}\/\d{2,4}|\d{4}-\d{2}-\d{2})/;
+  const candidatos = [];
+  linhas.forEach(linha => {
+    const mValor = linha.match(reValor);
+    if(!mValor) return;
+    const valor = parseValorBR(mValor[1]);
+    if(!valor) return;
+    const mData = linha.match(reData);
+    const data = mData ? parseDataFlexivel(mData[1]) : null;
+    let descricao = linha.replace(mValor[0], '').replace(mData ? mData[0] : '', '').replace(/\s{2,}/g, ' ').trim();
+    if(descricao.length > 90) descricao = descricao.slice(0, 90);
+    candidatos.push({ include: true, descricao: descricao || 'Repasse', valor, data: data || '', tipo: 'repasse' });
+  });
+  return candidatos;
+}
+
+function renderPdfPreview(){
+  document.getElementById('pdf-count-label').textContent = pdfItems.length > 0
+    ? `Encontrei ${pdfItems.length} linha(s) com valor. Confira e corrija antes de importar — PDF nem sempre vem perfeito:`
+    : 'Não encontrei nenhuma linha com valor reconhecível nesse PDF. Tente ajustar manualmente ou usar CSV.';
+  const list = document.getElementById('pdf-items-list');
+  list.innerHTML = '';
+  pdfItems.forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.className = 'pdf-item';
+    row.innerHTML = `
+      <input type="checkbox" ${item.include ? 'checked' : ''}>
+      <div class="pi-fields">
+        <input type="text" class="pi-desc" placeholder="Descrição" value="${escapeHtml(item.descricao)}">
+        <div class="pi-row">
+          <input type="number" step="0.01" class="pi-valor" placeholder="Valor" value="${item.valor}">
+          <input type="date" class="pi-data" value="${item.data}">
+          <select class="pi-tipo">
+            <option value="repasse" ${item.tipo==='repasse'?'selected':''}>Repasse</option>
+            <option value="receita" ${item.tipo==='receita'?'selected':''}>Receita</option>
+            <option value="despesa" ${item.tipo==='despesa'?'selected':''}>Despesa</option>
+          </select>
+        </div>
+      </div>
+    `;
+    row.querySelector('input[type="checkbox"]').addEventListener('change', e => { item.include = e.target.checked; });
+    row.querySelector('.pi-desc').addEventListener('input', e => { item.descricao = e.target.value; });
+    row.querySelector('.pi-valor').addEventListener('input', e => { item.valor = Number(e.target.value)||0; });
+    row.querySelector('.pi-data').addEventListener('input', e => { item.data = e.target.value; });
+    row.querySelector('.pi-tipo').addEventListener('change', e => { item.tipo = e.target.value; });
+    list.appendChild(row);
+  });
+}
+
 document.getElementById('csv-file').addEventListener('change', async e => {
   const file = e.target.files[0];
   if(!file) return;
+  const ehPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+
+  if(ehPdf){
+    modoImportacao = 'pdf';
+    document.getElementById('csv-mapping').hidden = true;
+    document.getElementById('pdf-count-label').textContent = 'Lendo o PDF...';
+    document.getElementById('pdf-preview').hidden = false;
+    document.getElementById('pdf-items-list').innerHTML = '';
+    try{
+      const texto = await extrairTextoPDF(file);
+      pdfItems = extrairCandidatosDoPDF(texto);
+      renderPdfPreview();
+      document.getElementById('csv-import').hidden = false;
+    }catch(err){
+      console.error(err);
+      document.getElementById('pdf-count-label').textContent = 'Não consegui ler esse PDF: ' + err.message;
+    }
+    return;
+  }
+
+  modoImportacao = 'csv';
+  document.getElementById('pdf-preview').hidden = true;
   const text = await file.text();
   const rows = parseCSV(text);
   if(rows.length < 2){ alert('Não consegui encontrar linhas de dados nesse arquivo.'); return; }
@@ -535,6 +646,29 @@ function identificarTipo(valor, padrao){
 }
 
 document.getElementById('csv-import').addEventListener('click', async () => {
+  const btn = document.getElementById('csv-import');
+  btn.textContent = 'Importando...'; btn.disabled = true;
+
+  if(modoImportacao === 'pdf'){
+    const selecionados = pdfItems.filter(i => i.include && i.descricao.trim() && i.valor > 0 && i.data);
+    let count = 0;
+    for(const item of selecionados){
+      const docData = { tipo: item.tipo, descricao: item.descricao.trim(), valor: item.valor, data: item.data, criadoEm: new Date().toISOString() };
+      if(item.tipo === 'despesa') docData.categoria = 'Outros';
+      await addDoc(collection(db, 'polos', selectedPoloId, 'financeiro'), docData);
+      count++;
+    }
+    btn.textContent = 'Importar'; btn.disabled = false;
+    document.getElementById('csv-overlay').hidden = true;
+    await loadTransacoes();
+    render();
+    const ignorados = pdfItems.filter(i => i.include).length - count;
+    let msg = `${count} transação(ões) importada(s) do PDF.`;
+    if(ignorados > 0) msg += ` ${ignorados} linha(s) ignorada(s) por faltar descrição, valor ou data — preencha e importe de novo se quiser incluí-las.`;
+    alert(msg);
+    return;
+  }
+
   const idxDesc = Number(document.getElementById('map-descricao').value);
   const idxValor = Number(document.getElementById('map-valor').value);
   const idxData = Number(document.getElementById('map-data').value);
@@ -543,10 +677,9 @@ document.getElementById('csv-import').addEventListener('click', async () => {
   const tipoPadrao = document.getElementById('csv-tipo-padrao').value;
   if(idxDesc < 0 || idxValor < 0 || idxData < 0){
     alert('Selecione as colunas de Descrição, Valor e Data — esses três são obrigatórios.');
+    btn.textContent = 'Importar'; btn.disabled = false;
     return;
   }
-  const btn = document.getElementById('csv-import');
-  btn.textContent = 'Importando...'; btn.disabled = true;
   let count = 0, semPoloEncontrado = 0;
   for(const row of csvRows){
     const descricao = (row[idxDesc] || '').trim();
