@@ -135,6 +135,28 @@ que ele entende do mesmo jeito — a palavra é só ignorada na interpretação.
 Esse arquivo (`assistant.js`) precisa ir pro GitHub junto com os `.html`,
 na mesma pasta. Não precisa de nenhuma configuração nele.
 
+## Novidades: exclusão de leads, cronômetro de tarefas e ditado por voz
+
+**Excluir leads** (aba Vendas):
+- **"☑️ Selecionar"** — ativa um modo onde clicar num card marca ele (em vez de abrir); depois é só "🗑️ Excluir selecionados"
+- **"🗑️ Excluir todos"** — apaga todos os leads do polo de uma vez (pede pra digitar EXCLUIR em maiúsculas antes de confirmar, pra evitar acidente)
+
+**Cronômetro de tarefas** (nova aba "⏱️ Foco"):
+- Defina uma tarefa (ou use os atalhos prontos: Follow-up 2h, Redes sociais 30min, Ligações 20min, Administrativo 30min) e a duração
+- O cronômetro conta regressivo; quando estoura o tempo, ele muda pra vermelho, conta a mais, e dispara um aviso (notificação do navegador + o Sync fala em voz alta)
+- Ao clicar em "Parar e registrar", fica salvo no histórico do dia — dá pra ver quanto tempo foi gasto em cada tipo de tarefa
+
+**Ditado por voz nas notas do lead**: dentro do formulário de lead, tem um botão "🎙️ Ditar" ao lado do campo Notas — clique, fale, e o texto é adicionado automaticamente (sem interpretar como comando, só transcreve).
+
+Tudo isso usa a mesma tecnologia de voz do Sync (Web Speech API), então funciona melhor no Chrome.
+
+## Técnica dos 5 sinais antes de fechar matrícula
+Nova seção na aba Roteiros: os 5 sinais que precisam estar "verdes" antes de
+falar preço (a pessoa te entendeu, confia em você, vê que resolve o
+problema dela, acha que vale o investimento, e sabe por que decidir agora),
+mais uma estrutura de 8 passos pra usar no WhatsApp, com botão de copiar em
+cada frase.
+
 ## Novidades inspiradas na Frontzapp (versão gratuita)
 Analisei o https://frontzapp.com.br/ — é uma plataforma paga de automação
 de WhatsApp (API oficial, IA de atendimento, disparos em massa). Essas

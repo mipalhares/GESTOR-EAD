@@ -75,7 +75,10 @@
   .column-body{padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;flex:1;}
   .column-body:empty::after{content:"Sem leads aqui";color:var(--text-muted);font-size:12px;text-align:center;padding:16px 4px;display:block;}
 
-  .card{background:var(--panel-alt);border:1px solid var(--border);border-radius:9px;padding:11px 12px;cursor:grab;}
+  .card{background:var(--panel-alt);border:1px solid var(--border);border-radius:9px;padding:11px 12px;cursor:grab;position:relative;}
+  .card.selecionavel{cursor:pointer;padding-left:32px;}
+  .card .card-checkbox{position:absolute;left:10px;top:12px;width:16px;height:16px;}
+  .card.card-marcado{border-color:var(--gold);background:rgba(214,167,86,0.08);}
   .card:hover{border-color:var(--gold);}
   .card.dragging{opacity:0.4;}
   .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;}
@@ -171,6 +174,7 @@
       <button data-view="agenda">Agenda</button>
       <button data-view="conversao">Conversão</button>
       <button data-view="roteiros">Roteiros</button>
+      <button data-view="foco">⏱️ Foco</button>
       <button id="btn-go-relatorios">Relatórios</button>
       <button id="btn-go-plano">Plano de Ações</button>
       <button id="btn-go-financeiro">💰 Financeiro</button>
@@ -189,6 +193,9 @@
       <button class="small-btn" id="btn-export-leads">⬇️ Exportar CSV</button>
       <button class="small-btn" id="btn-organizar-leads" title="Analisa as anotações dos leads em 'Lead novo' e reclassifica pra etapa certa">🤖 Organizar leads</button>
       <button class="small-btn" id="btn-import-csv">📄 Importar CSV</button>
+      <button class="small-btn" id="btn-toggle-selecao">☑️ Selecionar</button>
+      <button class="small-btn" id="btn-excluir-selecionados" style="display:none;color:var(--red);">🗑️ Excluir selecionados (0)</button>
+      <button class="small-btn" id="btn-excluir-todos" style="color:var(--red);">🗑️ Excluir todos</button>
       <button id="btn-whatsapp">💬 Da conversa do WhatsApp</button>
       <button id="btn-whatsapp-bulk">📥 Importar vários</button>
       <button id="btn-new-lead">+ Novo lead</button>
@@ -243,7 +250,48 @@
   </div>
 
   <div class="view" id="view-roteiros">
-    <div style="padding:20px 28px;display:flex;flex-direction:column;gap:12px;max-width:720px;" id="roteiros-list"></div>
+    <div style="padding:20px 28px 4px 28px;max-width:720px;">
+      <div id="tecnica-5-sins" style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:18px;"></div>
+    </div>
+    <div style="padding:0 28px 20px 28px;display:flex;flex-direction:column;gap:12px;max-width:720px;" id="roteiros-list"></div>
+  </div>
+
+  <div class="view" id="view-foco">
+    <div style="padding:20px 28px;display:flex;gap:20px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:300px;max-width:380px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;">
+        <h3 style="font-size:15px;margin-bottom:14px;">Cronômetro de tarefas</h3>
+        <div id="foco-form">
+          <div class="field" style="text-align:left;">
+            <label>Tarefa</label>
+            <input type="text" id="foco-tarefa" placeholder="Ex: Follow-up, Redes sociais...">
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 14px 0;">
+            <button type="button" class="small-btn" data-preset-tarefa="Follow-up" data-preset-min="120">Follow-up · 2h</button>
+            <button type="button" class="small-btn" data-preset-tarefa="Redes sociais" data-preset-min="30">Redes sociais · 30min</button>
+            <button type="button" class="small-btn" data-preset-tarefa="Ligações" data-preset-min="20">Ligações · 20min</button>
+            <button type="button" class="small-btn" data-preset-tarefa="Administrativo" data-preset-min="30">Administrativo · 30min</button>
+          </div>
+          <div class="field" style="text-align:left;">
+            <label>Duração (minutos)</label>
+            <input type="number" id="foco-duracao" value="30" min="1">
+          </div>
+          <button type="button" class="btn-primary" id="btn-foco-iniciar" style="width:100%;margin-top:6px;">▶ Iniciar</button>
+        </div>
+        <div id="foco-ativo" hidden>
+          <div id="foco-tarefa-label" style="font-size:14px;color:var(--text-muted);margin-bottom:6px;"></div>
+          <div id="foco-display" style="font-family:'Fraunces',serif;font-size:48px;margin:10px 0;">00:00</div>
+          <div id="foco-status" style="font-size:12px;color:var(--text-muted);margin-bottom:14px;"></div>
+          <div style="display:flex;gap:8px;">
+            <button type="button" class="btn-secondary" id="btn-foco-pausar" style="flex:1;">⏸ Pausar</button>
+            <button type="button" class="btn-primary" id="btn-foco-parar" style="flex:1;">⏹ Parar e registrar</button>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:300px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;">
+        <h3 style="font-size:15px;margin-bottom:14px;">Registrado hoje</h3>
+        <div id="foco-historico"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -278,7 +326,10 @@
         <label>Motivo do encerramento</label>
         <select id="f-motivo"></select>
       </div>
-      <div class="field"><label>Notas</label><textarea id="f-notas"></textarea></div>
+      <div class="field">
+        <label>Notas <button type="button" class="small-btn" id="btn-ditar-notas" style="padding:2px 8px;font-size:10px;margin-left:4px;" title="Ditar por voz">🎙️ Ditar</button></label>
+        <textarea id="f-notas"></textarea>
+      </div>
       <div class="checklist" id="lead-timeline-block" hidden>
         <h3>Histórico</h3>
         <div id="lead-timeline-list" style="max-height:150px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;"></div>
@@ -480,6 +531,8 @@ let authMode = 'login';
 let polos = [];
 let selectedPoloId = null;
 let leads = [];
+let modoSelecao = false;
+let leadsSelecionados = new Set();
 let eventos = [];
 let currentLeadFilter = 'todos';
 let currentEventoFilter = 'todos';
@@ -884,7 +937,8 @@ function renderVendas(){
     const body = col.querySelector('.column-body');
     stageLeads.forEach(lead => {
       const card = document.createElement('div');
-      card.className = 'card'; card.draggable = true;
+      card.className = 'card' + (modoSelecao ? ' selecionavel' : '') + (leadsSelecionados.has(lead.id) ? ' card-marcado' : '');
+      card.draggable = !modoSelecao;
       const fu = followUpStatus(lead.proximoFollowUp, lead.etapa);
       let fuHtml = '';
       if(lead.proximoFollowUp){
@@ -897,13 +951,18 @@ function renderVendas(){
         if(horas > 2){ slaHtml = `<div class="card-followup overdue">⏱ SLA 2h estourado</div>`; }
       }
       card.innerHTML = `
+        ${modoSelecao ? `<input type="checkbox" class="card-checkbox" ${leadsSelecionados.has(lead.id)?'checked':''}>` : ''}
         <div class="card-top"><div class="card-name">${escapeHtml(lead.nome)}</div><span class="tag ${lead.tipo}">${lead.tipo.toUpperCase()}</span></div>
         ${lead.valor ? `<div class="card-value">${formatMoney(lead.valor)}</div>` : ''}
         ${fuHtml}${slaHtml}
       `;
-      card.addEventListener('click', () => openLeadModal(lead.id));
-      card.addEventListener('dragstart', e => { card.classList.add('dragging'); e.dataTransfer.setData('text/plain', lead.id); });
-      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+      if(modoSelecao){
+        card.addEventListener('click', () => toggleSelecaoLead(lead.id));
+      } else {
+        card.addEventListener('click', () => openLeadModal(lead.id));
+        card.addEventListener('dragstart', e => { card.classList.add('dragging'); e.dataTransfer.setData('text/plain', lead.id); });
+        card.addEventListener('dragend', () => card.classList.remove('dragging'));
+      }
       body.appendChild(card);
     });
     col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('dragover'); });
@@ -1050,6 +1109,59 @@ function renderConversao(){
   }
 }
 
+const SINAIS_DECISAO = [
+  { titulo:'1. "Ela entende o que eu preciso?"', dica:'Antes de falar do curso, faça 2-3 perguntas sobre a situação da pessoa e devolva o que ela disse, com as palavras dela.', exemplo:'Antes de te indicar uma graduação, me conta: o que você está buscando hoje — mudar de área, crescer onde já trabalha, ou abrir novas oportunidades?' },
+  { titulo:'2. "Posso confiar nessa pessoa?"', dica:'Não tente parecer perfeito. Uma limitação verdadeira dita com transparência gera mais confiança do que elogiar demais o curso.', exemplo:'Vou ser transparente: o EAD exige organização e autonomia. Não é ideal pra quem precisa de alguém cobrando presencialmente todo dia — mas se sua prioridade é flexibilidade, faz bastante diferença.' },
+  { titulo:'3. "Isso resolve o meu problema?"', dica:'Nunca liste característica sem explicar o que ela significa na vida da pessoa. Use a ponte "isso significa que...".', exemplo:'Você tem flexibilidade de horários. Isso significa que dá pra organizar os estudos em torno do seu trabalho, sem precisar abandonar sua rotina pra estudar.' },
+  { titulo:'4. "Isso vale o que custa?"', dica:'Nunca fale preço antes de construir valor. Mostre primeiro o custo de continuar adiando, depois apresente o investimento de forma clara.', exemplo:'Se você adiar a graduação por mais um ano, o que isso representa pra sua carreira? [depois] Seu investimento mensal fica em R$ X, em X parcelas de R$ Y.' },
+  { titulo:'5. "Por que agora e não depois?"', dica:'"Vou pensar" quase sempre esconde uma objeção específica (financeiro, família, insegurança). Descubra qual antes de oferecer desconto.', exemplo:'Só pra eu entender: o que você gostaria de avaliar antes de decidir? [se disser financeiro] E se essa parte estivesse resolvida, você começaria agora?' },
+];
+const PASSOS_FECHAMENTO = [
+  { nome:'① Entender', texto:'Antes de te indicar a melhor opção, posso te fazer uma pergunta? O que fez você procurar uma graduação agora?' },
+  { nome:'② Espelhar', texto:'Entendi. Então seu principal ponto é conseguir uma formação que dá pra conciliar com o trabalho, certo?' },
+  { nome:'③ Gerar confiança', texto:'Vou ser transparente: o EAD exige organização. Se você procura alguém cobrando presencialmente todo dia, talvez não seja o ideal — mas se sua prioridade é flexibilidade, faz bastante sentido.' },
+  { nome:'④ Traduzir a oferta', texto:'Essa graduação tem [característica]. Isso significa que, na prática, você consegue [benefício ligado ao que a pessoa contou].' },
+  { nome:'⑤ Construir valor', texto:'Pensando no que você me contou, o mais importante não é só o diploma — é você conseguir começar sem parar sua vida profissional pra isso.' },
+  { nome:'⑥ Preço', texto:'Pra essa condição, o investimento fica em R$ X por mês.' },
+  { nome:'⑦ Urgência real', texto:'Essa condição é válida até [data real]. Depois disso não consigo garantir esse mesmo valor.' },
+  { nome:'⑧ Fechamento', texto:'Pensando no que você me falou, prefere começar agora ou deixar pra próxima turma?' },
+];
+function renderTecnica5Sins(){
+  const box = document.getElementById('tecnica-5-sins');
+  if(!box) return;
+  box.innerHTML = `
+    <h3 style="font-size:15px;margin-bottom:4px;">🎯 Os 5 sinais antes de fechar matrícula</h3>
+    <p style="font-size:12px;color:var(--text-muted);margin:0 0 14px 0;">Não manda preço antes de passar pelos 5 — a maioria dos leads "sumidos" trava aqui, não no preço.</p>
+    ${SINAIS_DECISAO.map(s => `
+      <div style="margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:600;">${escapeHtml(s.titulo)}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin:3px 0;">${escapeHtml(s.dica)}</div>
+        <div style="font-size:12px;font-style:italic;color:var(--teal);">"${escapeHtml(s.exemplo)}"</div>
+      </div>
+    `).join('')}
+    <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px;">
+      <h3 style="font-size:14px;margin-bottom:10px;">Estrutura de 8 passos pra usar no WhatsApp</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${PASSOS_FECHAMENTO.map((p, idx) => `
+          <div style="background:var(--panel-alt);border:1px solid var(--border);border-radius:8px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <div><strong style="font-size:12.5px;">${escapeHtml(p.nome)}</strong><div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">${escapeHtml(p.texto)}</div></div>
+            <button class="small-btn" data-copy-passo="${idx}" style="flex-shrink:0;">Copiar</button>
+          </div>
+        `).join('')}
+      </div>
+      <p style="font-size:11.5px;color:var(--gold);margin-top:10px;">Depois do passo 8: pergunte e fique em silêncio. Não mande mais mensagens tentando convencer.</p>
+    </div>
+  `;
+  box.querySelectorAll('[data-copy-passo]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(PASSOS_FECHAMENTO[Number(btn.dataset.copyPasso)].texto).then(() => {
+        btn.textContent = 'Copiado ✓';
+        setTimeout(() => { btn.textContent = 'Copiar'; }, 1500);
+      });
+    });
+  });
+}
+
 const ROTEIROS = [
   { momento:'1º contato (até 2h)', canal:'Áudio 30s', mensagem:'Oi [nome]! Aqui é o [gestor], do Polo [cidade] da Educação Adventista. Vi que você se interessou por [curso]. Me conta rapidinho: já cursou faculdade antes ou seria a primeira graduação?' },
   { momento:'Sem resposta em 24h', canal:'Texto', mensagem:'[nome], passando aqui de novo. Pra eu não te atrapalhar: prefere que eu te explique por áudio, por mensagem ou numa ligação rápida?' },
@@ -1193,6 +1305,54 @@ document.getElementById('tabs-tipo').addEventListener('click', e => {
   renderVendas();
 });
 document.getElementById('search').addEventListener('input', e => { searchTerm = e.target.value; renderVendas(); });
+
+/* ---- Seleção e exclusão de leads ---- */
+function toggleSelecaoLead(id){
+  if(leadsSelecionados.has(id)) leadsSelecionados.delete(id);
+  else leadsSelecionados.add(id);
+  renderVendas();
+  atualizarBotaoExcluirSelecionados();
+}
+document.getElementById('btn-toggle-selecao').addEventListener('click', () => {
+  modoSelecao = !modoSelecao;
+  leadsSelecionados.clear();
+  document.getElementById('btn-toggle-selecao').textContent = modoSelecao ? '✕ Cancelar seleção' : '☑️ Selecionar';
+  document.getElementById('btn-excluir-selecionados').style.display = modoSelecao ? 'inline-block' : 'none';
+  renderVendas();
+});
+function atualizarBotaoExcluirSelecionados(){
+  const btn = document.getElementById('btn-excluir-selecionados');
+  btn.textContent = `🗑️ Excluir selecionados (${leadsSelecionados.size})`;
+}
+document.getElementById('btn-excluir-selecionados').addEventListener('click', async () => {
+  if(leadsSelecionados.size === 0) return;
+  if(!confirm(`Excluir ${leadsSelecionados.size} lead(s) selecionado(s)? Essa ação não pode ser desfeita.`)) return;
+  const btn = document.getElementById('btn-excluir-selecionados');
+  btn.disabled = true; btn.textContent = 'Excluindo...';
+  for(const id of leadsSelecionados){
+    await deleteDoc(doc(db, 'polos', selectedPoloId, 'leads', id));
+  }
+  leadsSelecionados.clear();
+  modoSelecao = false;
+  document.getElementById('btn-toggle-selecao').textContent = '☑️ Selecionar';
+  document.getElementById('btn-excluir-selecionados').style.display = 'none';
+  btn.disabled = false;
+  await loadLeads();
+  renderVendas();
+});
+document.getElementById('btn-excluir-todos').addEventListener('click', async () => {
+  if(leads.length === 0){ alert('Não há leads nesse polo pra excluir.'); return; }
+  const confirmacao = prompt(`Isso vai excluir TODOS os ${leads.length} leads deste polo, sem volta. Digite EXCLUIR (em maiúsculas) pra confirmar:`);
+  if(confirmacao !== 'EXCLUIR') return;
+  const btn = document.getElementById('btn-excluir-todos');
+  btn.disabled = true; btn.textContent = 'Excluindo...';
+  for(const lead of [...leads]){
+    await deleteDoc(doc(db, 'polos', selectedPoloId, 'leads', lead.id));
+  }
+  btn.disabled = false; btn.textContent = '🗑️ Excluir todos';
+  await loadLeads();
+  renderVendas();
+});
 
 function parseWhatsappText(raw){
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
@@ -1560,6 +1720,7 @@ document.querySelector('.maintabs').addEventListener('click', e => {
   e.target.classList.add('active');
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + view).classList.add('active');
+  if(view === 'foco') carregarHistoricoFoco();
 });
 
 function downloadCSV(content, filename){
@@ -1594,7 +1755,124 @@ document.getElementById('btn-export-eventos').addEventListener('click', () => {
   downloadCSV(lines.join('\n'), `agenda-${poloNome.replace(/\s+/g,'-')}-${todayStr()}.csv`);
 });
 
+/* ================= CRONÔMETRO DE TAREFAS (Foco) ================= */
+let focoState = null;
+
+function formatMMSS(totalSeg){
+  const m = Math.floor(Math.abs(totalSeg)/60);
+  const s = Math.abs(totalSeg)%60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function tempoDecorridoFoco(){
+  const agora = focoState.pausadoEm || Date.now();
+  return Math.floor((agora - focoState.inicio)/1000) - focoState.tempoPausadoTotal;
+}
+function notificarEstouroFoco(tarefa){
+  if('Notification' in window && Notification.permission === 'granted'){
+    new Notification('Tempo estourado', { body: `Você passou do tempo planejado pra "${tarefa}".` });
+  }
+  if(window.SyncAssistant && SyncAssistant.supported){
+    SyncAssistant.speak(`Atenção, o tempo planejado pra ${tarefa} já estourou.`);
+  }
+}
+function atualizarDisplayFoco(){
+  if(!focoState) return;
+  const decorrido = tempoDecorridoFoco();
+  const restante = focoState.duracaoPlanejadaSeg - decorrido;
+  const display = document.getElementById('foco-display');
+  const status = document.getElementById('foco-status');
+  if(restante >= 0){
+    display.textContent = formatMMSS(restante);
+    display.style.color = 'var(--text)';
+    status.textContent = focoState.pausadoEm ? 'Pausado' : `Tempo planejado: ${Math.round(focoState.duracaoPlanejadaSeg/60)} min`;
+  } else {
+    if(!focoState.estourou){
+      focoState.estourou = true;
+      notificarEstouroFoco(focoState.tarefa);
+    }
+    display.textContent = '+' + formatMMSS(restante);
+    display.style.color = 'var(--red)';
+    status.textContent = focoState.pausadoEm ? 'Pausado (tempo estourado)' : 'Tempo estourado — considere parar ou trocar de tarefa';
+  }
+}
+function iniciarFoco(tarefa, duracaoMin){
+  focoState = { tarefa, duracaoPlanejadaSeg: duracaoMin*60, inicio: Date.now(), pausadoEm: null, tempoPausadoTotal: 0, estourou: false };
+  document.getElementById('foco-form').hidden = true;
+  document.getElementById('foco-ativo').hidden = false;
+  document.getElementById('foco-tarefa-label').textContent = tarefa;
+  document.getElementById('btn-foco-pausar').textContent = '⏸ Pausar';
+  atualizarDisplayFoco();
+  focoState.intervalId = setInterval(atualizarDisplayFoco, 1000);
+}
+document.querySelectorAll('[data-preset-tarefa]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('foco-tarefa').value = btn.dataset.presetTarefa;
+    document.getElementById('foco-duracao').value = btn.dataset.presetMin;
+  });
+});
+document.getElementById('btn-foco-iniciar').addEventListener('click', () => {
+  const tarefa = document.getElementById('foco-tarefa').value.trim() || 'Tarefa';
+  const duracaoMin = Number(document.getElementById('foco-duracao').value) || 30;
+  iniciarFoco(tarefa, duracaoMin);
+});
+document.getElementById('btn-foco-pausar').addEventListener('click', () => {
+  if(!focoState) return;
+  if(focoState.pausadoEm){
+    focoState.tempoPausadoTotal += Math.floor((Date.now()-focoState.pausadoEm)/1000);
+    focoState.pausadoEm = null;
+    document.getElementById('btn-foco-pausar').textContent = '⏸ Pausar';
+  } else {
+    focoState.pausadoEm = Date.now();
+    document.getElementById('btn-foco-pausar').textContent = '▶ Retomar';
+  }
+  atualizarDisplayFoco();
+});
+async function registrarFoco(dadosFoco){
+  try{
+    await addDoc(collection(db, 'polos', selectedPoloId, 'cronometro'), { ...dadosFoco, criadoPor: currentUser.email, criadoEm: new Date().toISOString() });
+  }catch(e){ console.error(e); alert('Não consegui salvar o registro do cronômetro: ' + e.message); }
+}
+async function carregarHistoricoFoco(){
+  const box = document.getElementById('foco-historico');
+  if(!box || !selectedPoloId) return;
+  box.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">Carregando...</div>';
+  try{
+    const snap = await getDocs(collection(db, 'polos', selectedPoloId, 'cronometro'));
+    const hoje = todayStr();
+    const registros = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(r => (r.inicio || '').slice(0,10) === hoje)
+      .sort((a,b) => (b.inicio||'').localeCompare(a.inicio||''));
+    if(registros.length === 0){ box.innerHTML = '<div style="color:var(--text-muted);font-size:12.5px;">Nada registrado hoje ainda.</div>'; return; }
+    const totalMin = registros.reduce((s,r) => s + (r.duracaoRealMin || 0), 0);
+    box.innerHTML = `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Total hoje: ${totalMin} min</div>` + registros.map(r => `
+      <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12.5px;">
+        <span>${escapeHtml(r.tarefa)}${r.criadoPor ? ` <span style="color:var(--text-muted);">· ${escapeHtml(r.criadoPor)}</span>` : ''}</span>
+        <span style="color:${r.estourou ? 'var(--red)' : 'var(--text-muted)'};">${r.duracaoRealMin} min${r.estourou ? ' (estourou, planejado ' + r.duracaoPlanejadaMin + ')' : ''}</span>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">Não consegui carregar o histórico.</div>'; }
+}
+document.getElementById('btn-foco-parar').addEventListener('click', async () => {
+  if(!focoState) return;
+  clearInterval(focoState.intervalId);
+  const decorridoSeg = Math.max(0, tempoDecorridoFoco());
+  await registrarFoco({
+    tarefa: focoState.tarefa,
+    duracaoPlanejadaMin: Math.round(focoState.duracaoPlanejadaSeg/60),
+    duracaoRealMin: Math.max(1, Math.round(decorridoSeg/60)),
+    estourou: decorridoSeg > focoState.duracaoPlanejadaSeg,
+    inicio: new Date(focoState.inicio).toISOString(),
+    fim: new Date().toISOString(),
+  });
+  focoState = null;
+  document.getElementById('foco-ativo').hidden = true;
+  document.getElementById('foco-form').hidden = false;
+  document.getElementById('foco-tarefa').value = '';
+  await carregarHistoricoFoco();
+});
+
 populateEtapaSelect();
+renderTecnica5Sins();
 renderRoteiros();
 updateAuthUI();
 
@@ -1607,12 +1885,27 @@ function syncSay(texto){
   clearTimeout(window.__syncBubbleTimeout);
   window.__syncBubbleTimeout = setTimeout(() => { bubble.hidden = true; }, 7000);
 }
+let syncContexto = 'comando';
 SyncAssistant.init((texto) => {
+  if(syncContexto === 'notas'){
+    const campo = document.getElementById('f-notas');
+    campo.value = campo.value ? (campo.value + ' ' + texto) : texto;
+    syncContexto = 'comando';
+    const btn = document.getElementById('btn-ditar-notas');
+    if(btn) btn.textContent = '🎙️ Ditar';
+    return;
+  }
   const bubble = document.getElementById('sync-bubble');
   bubble.textContent = `Ouvi: "${texto}"`;
   bubble.hidden = false;
   const intent = SyncParse.intent(texto);
   setTimeout(() => handleSyncIntent(intent, texto), 400);
+});
+document.getElementById('btn-ditar-notas').addEventListener('click', () => {
+  if(!SyncAssistant.supported){ alert('Reconhecimento de voz não suportado neste navegador. Tente pelo Chrome.'); return; }
+  syncContexto = 'notas';
+  document.getElementById('btn-ditar-notas').textContent = '🎙️ Ouvindo...';
+  SyncAssistant.start();
 });
 document.getElementById('sync-btn').addEventListener('click', () => {
   if(!SyncAssistant.supported){
