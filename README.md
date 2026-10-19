@@ -247,3 +247,28 @@ mesmo `firebaseConfig` no `plano-de-acoes.html`, igual fez nos outros.
   só enxerga os polos aos quais foi adicionado, por design
 - O quick-add do WhatsApp continua sendo "colar texto e revisar", não uma
   sincronização automática (isso exigiria a API oficial do WhatsApp Business)
+
+## 🛡️ Administrador e assinaturas (acesso pago)
+
+- Só quem tem uma assinatura **ativa e dentro do prazo** acessa os dados dos polos. Isso é imposto pelas **regras do Firestore** (não dá para burlar pelo navegador).
+- Novo gestor cria a conta → vê "Aguardando liberação" → você abre **🛡️ Admin** e clica **Liberar 30 dias** (ou **Gerenciar** para definir data, suspender, anotar pagamento).
+- Aba **Polos**: crie polo para um gestor e vincule/desvincule gestores.
+- Aba **Configurações**: seu WhatsApp e a mensagem (Pix/valor) exibidos na tela de bloqueio.
+- **Virar administrador (uma única vez):** crie sua conta no app, depois no Firebase Console > Firestore > "Iniciar coleção" `admins` > ID do documento = seu UID (Authentication > Usuários > coluna "UID do usuário") > adicione um campo `ativo` (booleano) = true.
+- Arquivos novos: `acesso.js`, `admin.html`. Republique o `firestore.rules`.
+
+## 🛡️ Administrador e assinaturas (venda de acesso)
+
+- **acesso.js** – verifica se o gestor tem assinatura ativa (usado em todas as telas).
+- **admin.html** – painel do administrador: liberar/suspender gestores, definir vencimento (+30/+90/+365 dias), vincular polos, configurar WhatsApp e mensagem da tela de bloqueio.
+- **Segurança real:** as regras do Firestore (firestore.rules) bloqueiam os dados de quem não tem assinatura ativa — não é só a tela.
+
+### Como virar administrador (uma vez só)
+1. Publique o firestore.rules novo e envie todos os arquivos ao GitHub.
+2. Crie sua conta no app (ou entre na que já existe).
+3. Firebase Console > Authentication > copie seu **UID**.
+4. Firestore Database > Iniciar coleção `admins` > ID do documento = seu UID > campo `ativo` (boolean) = true.
+5. Recarregue o app: aparece o botão 🛡️ Admin.
+
+### Atenção
+Depois da atualização, todos os outros gestores ficam bloqueados até você liberar no painel Admin.
