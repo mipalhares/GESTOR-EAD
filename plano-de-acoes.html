@@ -50,6 +50,13 @@
   .frente-card .fc-fill{height:100%;background:var(--teal);}
   .frente-card .fc-info{font-size:11px;color:var(--text-muted);margin-top:4px;}
 
+  .pa-table{border-collapse:collapse;width:100%;font-size:12.5px;background:var(--panel);border:1px solid var(--border);}
+  .pa-table th{background:#1F2F57;color:#fff;padding:8px 10px;text-align:center;font-weight:600;white-space:nowrap;}
+  .pa-table td{padding:6px 10px;text-align:center;border-top:1px solid var(--border);}
+  .pa-table td:first-child,.pa-table th:first-child{text-align:left;}
+  .pa-table tr.pa-total td{background:#1F2F57;color:#fff;font-weight:700;}
+  .pa-table td.pa-warn{color:var(--red);font-weight:600;}
+  .pa-wrap{overflow-x:auto;margin-bottom:18px;}
   .list-area{padding:0 28px 28px 28px;display:flex;flex-direction:column;gap:10px;}
   .acao-row{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--blue);border-radius:10px;padding:14px 16px;cursor:pointer;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;}
   .acao-row:hover{border-color:var(--gold);}
@@ -125,6 +132,7 @@
 
   <div class="metrics" id="plano-metrics"></div>
   <div class="frentes-box" id="frentes-box"></div>
+  <div id="painel-acomp" style="padding:0 28px 20px 28px;"></div>
   <div class="list-area" id="acoes-list"></div>
 </div>
 
@@ -275,8 +283,61 @@ function getFiltered(){
   });
 }
 
+let cicoAno = null;
+const MESES_CICLO = ['Novembro','Dezembro','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro (ano 2)'];
+function anoInicioCiclo(dataStr){ const [y,m] = dataStr.split('-').map(Number); return m >= 11 ? y : y - 1; }
+function renderPainelAcompanhamento(){
+  const box = document.getElementById('painel-acomp'); if(!box) return;
+  const hoje = new Date();
+  const anos = new Set([anoInicioCiclo(`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-01`)]);
+  planoAcoes.forEach(a => { if(a.prazo) anos.add(anoInicioCiclo(a.prazo)); });
+  const lista = [...anos].sort();
+  if(cicoAno === null || !anos.has(cicoAno)) cicoAno = lista[lista.length-1];
+  const contar = itens => ({
+    total: itens.length,
+    nao: itens.filter(a => a.status === 'Não iniciada').length,
+    and: itens.filter(a => a.status === 'Em andamento').length,
+    conc: itens.filter(a => a.status === 'Concluída').length,
+    atr: itens.filter(a => a.status === 'Atrasada').length,
+    canc: itens.filter(a => a.status === 'Cancelada').length,
+  });
+  const pct = c => c.total ? ((c.conc / c.total) * 100).toFixed(1).replace('.', ',') + '%' : '0,0%';
+  const linhas = MESES_CICLO.map((nome, k) => {
+    const mes = ((10 + k) % 12) + 1, ano = cicoAno + (10 + k >= 12 ? 1 : 0);
+    const chave = `${ano}-${String(mes).padStart(2,'0')}`;
+    return { nome, c: contar(planoAcoes.filter(a => a.prazo && a.prazo.slice(0,7) === chave)) };
+  });
+  const semPrazo = contar(planoAcoes.filter(a => !a.prazo));
+  const tot = contar(planoAcoes.filter(a => !a.prazo || anoInicioCiclo(a.prazo) === cicoAno));
+  const tr = (nome, c, extra) => `<tr class="${extra||''}"><td>${nome}</td><td>${c.total}</td><td>${c.nao}</td><td>${c.and}</td><td>${c.conc}</td><td class="${c.atr?'pa-warn':''}">${c.atr}</td><td>${c.canc}</td><td>${pct(c)}</td></tr>`;
+  box.innerHTML = `
+    <details open>
+      <summary style="cursor:pointer;font-family:'Fraunces',serif;font-size:16px;margin-bottom:10px;">📊 Painel de acompanhamento</summary>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--text-muted);">Ciclo:</span>
+        <select id="pa-ciclo" style="background:var(--panel);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:7px;font-size:12.5px;">
+          ${lista.map(y => `<option value="${y}" ${y===cicoAno?'selected':''}>Nov/${y} → Nov/${y+1}</option>`).join('')}
+        </select>
+        <span style="font-size:11.5px;color:var(--text-muted);">Calculado automaticamente pelo prazo e status de cada ação.</span>
+      </div>
+      <div class="pa-wrap"><table class="pa-table">
+        <tr><th>Mês</th><th>Ações planejadas</th><th>Não iniciadas</th><th>Em andamento</th><th>Concluídas</th><th>Atrasadas</th><th>Canceladas</th><th>% concluído</th></tr>
+        ${linhas.map(l => tr(l.nome, l.c)).join('')}
+        ${semPrazo.total ? tr('Sem prazo definido', semPrazo) : ''}
+        ${tr('TOTAL DO CICLO', tot, 'pa-total')}
+      </table></div>
+      <h3 style="font-size:14px;margin:6px 0 8px;">Por frente de atuação</h3>
+      <div class="pa-wrap"><table class="pa-table" style="max-width:640px;">
+        <tr><th>Frente</th><th>Ações planejadas</th><th>Concluídas</th><th>Atrasadas</th><th>% concluído</th></tr>
+        ${FRENTES.map(f => { const c = contar(planoAcoes.filter(a => a.frente === f && (!a.prazo || anoInicioCiclo(a.prazo) === cicoAno))); return `<tr><td>${escapeHtml(f)}</td><td>${c.total}</td><td>${c.conc}</td><td class="${c.atr?'pa-warn':''}">${c.atr}</td><td>${pct(c)}</td></tr>`; }).join('')}
+      </table></div>
+    </details>`;
+  document.getElementById('pa-ciclo').addEventListener('change', e => { cicoAno = Number(e.target.value); renderPainelAcompanhamento(); });
+}
+
 function render(){
   const all = getFiltered();
+  renderPainelAcompanhamento();
   const total = all.length;
   const concluidas = all.filter(a => a.status === 'Concluída').length;
   const atrasadas = all.filter(a => a.status === 'Atrasada').length;

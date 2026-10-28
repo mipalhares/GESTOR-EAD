@@ -179,6 +179,7 @@
       <button id="btn-go-relatorios">Relatórios</button>
       <button id="btn-go-plano">Plano de Ações</button>
       <button id="btn-go-financeiro">💰 Financeiro</button>
+      <button id="btn-go-midia">📸 Mídias</button>
     </div>
   </div>
 
@@ -201,6 +202,7 @@
       <button id="btn-whatsapp-bulk">📥 Importar vários</button>
       <button id="btn-new-lead">+ Novo lead</button>
     </div>
+    <div id="aviso-postagem" style="padding:14px 28px 0 28px;"></div>
     <div class="metrics" id="metrics"></div>
     <div class="board" id="board"></div>
   </div>
@@ -665,6 +667,31 @@ document.getElementById('btn-organizar-leads')?.addEventListener('click', async 
   renderVendas();
   alert(resultado.resumo);
 });
+let postagensInfo = { hoje: [], atrasadas: [] };
+async function loadPostagens(){
+  try{
+    const [ms, eu] = await Promise.all([
+      getDocs(collection(db, 'midias')),
+      getDoc(doc(db, 'usuarios', currentUser.uid)),
+    ]);
+    const feitas = new Set((eu.exists() && eu.data().midiasPostadas) || []);
+    const hoje = todayStr();
+    const pend = ms.docs.map(d => ({ id: d.id, ...d.data() })).filter(m => m.dataSugerida && !feitas.has(m.id));
+    postagensInfo = { hoje: pend.filter(m => m.dataSugerida === hoje), atrasadas: pend.filter(m => m.dataSugerida < hoje) };
+  }catch(e){ console.warn('Mídias indisponíveis (regras novas publicadas?)', e); postagensInfo = { hoje: [], atrasadas: [] }; }
+  renderAvisoPostagem();
+}
+function renderAvisoPostagem(){
+  const box = document.getElementById('aviso-postagem'); if(!box) return;
+  const { hoje, atrasadas } = postagensInfo;
+  if(!hoje.length && !atrasadas.length){ box.innerHTML = ''; return; }
+  const partes = [];
+  if(hoje.length) partes.push(`<b>Hoje é dia de postar:</b> ${hoje.map(m => escapeHtml(m.titulo)).join(', ')}`);
+  if(atrasadas.length) partes.push(`<b>${atrasadas.length} postagem${atrasadas.length>1?'ns':''} atrasada${atrasadas.length>1?'s':''}</b>`);
+  box.innerHTML = `<div style="background:rgba(214,167,86,.14);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;font-size:13.5px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <span>📸 ${partes.join(' · ')}</span><button class="small-btn" id="btn-aviso-midia">Ver calendário</button></div>`;
+  document.getElementById('btn-aviso-midia').addEventListener('click', () => { try{ localStorage.setItem('midia-abrir-agenda','1'); }catch(e){} window.location.href = 'midia.html'; });
+}
 function checkAndNotify(){
   if(!('Notification' in window) || Notification.permission !== 'granted') return;
   const atrasados = leads.filter(l => followUpStatus(l.proximoFollowUp, l.etapa) === 'overdue');
@@ -675,6 +702,9 @@ function checkAndNotify(){
   const provasHoje = eventos.filter(e => e.tipo === 'prova' && e.data === hoje);
   if(provasHoje.length){
     new Notification('Prova hoje', { body: provasHoje.map(p => p.titulo).join(', ') });
+  }
+  if(postagensInfo.hoje.length || postagensInfo.atrasadas.length){
+    new Notification('📸 Postagem no Instagram', { body: postagensInfo.hoje.length ? 'Hoje: ' + postagensInfo.hoje.map(m => m.titulo).join(', ') : `${postagensInfo.atrasadas.length} postagem(ns) atrasada(s).` });
   }
 }
 document.getElementById('btn-notify').addEventListener('click', async () => {
@@ -763,6 +793,7 @@ onAuthStateChanged(auth, async (user) => {
       await loadEventos();
       await loadMeta();
       await loadGestoresAtuais();
+      await loadPostagens();
       renderVendas();
       renderAgenda();
       document.getElementById('sync-btn').hidden = false;
@@ -840,6 +871,9 @@ document.getElementById('btn-go-relatorios').addEventListener('click', () => {
 document.getElementById('btn-go-plano').addEventListener('click', () => {
   if(selectedPoloId) localStorage.setItem('polo-selecionado', selectedPoloId);
   window.location.href = 'plano-de-acoes.html';
+});
+document.getElementById('btn-go-midia').addEventListener('click', () => {
+  window.location.href = 'midia.html';
 });
 document.getElementById('btn-go-financeiro').addEventListener('click', () => {
   if(selectedPoloId) localStorage.setItem('polo-selecionado', selectedPoloId);
@@ -2159,10 +2193,17 @@ async function handleSyncIntent(intent, texto){
       if(slaEstourado>0) frases.push(`${slaEstourado} lead${slaEstourado>1?'s':''} aprovado${slaEstourado>1?'s':''} passando do prazo de duas horas sem contato`);
       if(atrasados>0) frases.push(`${atrasados} follow-up${atrasados>1?'s':''} atrasado${atrasados>1?'s':''}`);
       if(provasHoje.length>0) frases.push(`prova hoje: ${provasHoje.map(p=>p.titulo).join(', ')}`);
+      if(postagensInfo.hoje.length>0) frases.push(`postar no Instagram hoje: ${postagensInfo.hoje.map(m=>m.titulo).join(', ')}`);
+      if(postagensInfo.atrasadas.length>0) frases.push(`${postagensInfo.atrasadas.length} postagem${postagensInfo.atrasadas.length>1?'ns':''} atrasada${postagensInfo.atrasadas.length>1?'s':''}`);
       const resposta = frases.length ? `Olha o que precisa de atenção hoje: ${frases.join('; ')}.` : 'Nada urgente pendente por aqui hoje. Segue tranquilo!';
       syncSay(resposta);
       break;
     }
+    case 'navegar_midias':
+      syncSay(postagensInfo.hoje.length ? `Abrindo as mídias. Hoje você tem ${postagensInfo.hoje.length} para postar.` : 'Abrindo as mídias do Instagram.');
+      try{ localStorage.setItem('midia-abrir-agenda','1'); }catch(e){}
+      setTimeout(() => { window.location.href = 'midia.html'; }, 900);
+      break;
     case 'navegar_financeiro':
       syncSay('Abrindo o Financeiro.');
       localStorage.setItem('polo-selecionado', selectedPoloId);

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PoloSync - Mídias para Instagram</title>
+<link rel="icon" href="favicon-32.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#171B26">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PoloSync">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#171B26; --panel:#1F2433; --panel-alt:#262C3F; --border:#333B52;
+    --text:#ECE9E1; --text-muted:#9098AF;
+    --gold:#D6A756; --teal:#4FA98C; --red:#C1666B; --blue:#6C8EBF;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;}
+  h1,h2,h3{font-family:'Fraunces',serif;font-weight:500;margin:0;}
+  #loading-screen{padding:60px;text-align:center;color:var(--text-muted);}
+  .topbar{display:flex;align-items:center;gap:14px;padding:16px 28px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .topbar h1{font-size:20px;}
+  #btn-back{background:none;border:1px solid var(--border);color:var(--text-muted);padding:7px 14px;border-radius:8px;font-size:12.5px;cursor:pointer;}
+  .spacer{flex:1;}
+  .tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:3px;flex-wrap:wrap;}
+  .tabs button{background:none;border:none;color:var(--text-muted);padding:7px 12px;border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer;}
+  .tabs button.active{background:var(--panel-alt);color:var(--text);}
+  .btn-primary{background:var(--gold);color:#1B1B14;border:none;padding:9px 18px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;}
+  .btn-primary:disabled{opacity:.5;cursor:default;}
+  .btn-secondary{background:none;border:1px solid var(--border);color:var(--text-muted);padding:8px 14px;border-radius:8px;font-size:12.5px;cursor:pointer;}
+  .btn-danger{background:none;border:none;color:var(--red);font-size:12px;cursor:pointer;text-decoration:underline;}
+  .hint{color:var(--text-muted);font-size:12.5px;line-height:1.5;margin:0 0 10px 0;}
+
+  .admin-box{margin:20px 28px 0 28px;background:var(--panel);border:1px solid var(--gold);border-radius:12px;padding:18px 20px;}
+  .admin-box h3{font-size:15px;margin-bottom:10px;}
+  .field{margin-bottom:10px;}
+  .field label{display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:4px;}
+  .field input[type=text],.field input[type=url],.field input[type=date],.field select,.field textarea{
+    width:100%;background:var(--panel-alt);border:1px solid var(--border);color:var(--text);padding:9px 11px;border-radius:8px;font-size:13px;font-family:inherit;}
+  .field textarea{min-height:80px;resize:vertical;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  @media(max-width:600px){.row2{grid-template-columns:1fr;}.topbar,.admin-box{margin-left:0;margin-right:0;} .admin-box{margin:16px;} .topbar{padding:14px 16px;} .grid{padding:16px !important;}}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;padding:20px 28px 40px 28px;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
+  .thumb{aspect-ratio:1/1;background:var(--panel-alt);display:flex;align-items:center;justify-content:center;font-size:40px;position:relative;overflow:hidden;}
+  .thumb img{width:100%;height:100%;object-fit:cover;}
+  .badge{position:absolute;top:8px;left:8px;background:rgba(23,27,38,.85);border:1px solid var(--border);border-radius:6px;font-size:11px;padding:3px 8px;}
+  .badge.baixado{left:auto;right:8px;color:var(--teal);border-color:var(--teal);}
+  .card-body{padding:12px 14px;display:flex;flex-direction:column;gap:6px;flex:1;}
+  .card-title{font-size:13.5px;font-weight:600;}
+  .card-meta{font-size:11.5px;color:var(--text-muted);}
+  .card-cap{font-size:12.5px;color:var(--text);opacity:.85;white-space:pre-wrap;max-height:90px;overflow:auto;background:var(--panel-alt);border-radius:8px;padding:8px 10px;}
+  .card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:6px;}
+  .empty{padding:50px 28px;text-align:center;color:var(--text-muted);font-size:13.5px;}
+  #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel-alt);border:1px solid var(--border);padding:10px 18px;border-radius:10px;font-size:13px;display:none;z-index:50;}
+</style>
+</head>
+<body>
+
+<div id="loading-screen">Carregando...</div>
+
+<div id="app" style="display:none;">
+  <div class="topbar">
+    <button id="btn-back">← Voltar</button>
+    <h1>📸 Mídias para Instagram</h1>
+    <div class="spacer"></div>
+    <div class="tabs" id="tabs-cat">
+      <button data-cat="agenda">📅 Calendário</button>
+      <button data-cat="todos" class="active">Todas</button>
+      <button data-cat="Post">Posts</button>
+      <button data-cat="Reels">Reels</button>
+      <button data-cat="Stories">Stories</button>
+      <button data-cat="Carrossel">Carrosséis</button>
+    </div>
+  </div>
+
+  <div class="admin-box" id="admin-box" hidden>
+    <h3>➕ Enviar nova mídia para os gestores</h3>
+    <p class="hint">Imagens e vídeos curtos de até <b>8 MB</b> ficam guardados aqui. Para vídeo maior (Reels longos), cole o link do Google Drive/Dropbox no campo "Link externo" — o gestor abre e baixa por lá.</p>
+    <div class="row2">
+      <div class="field"><label>Título</label><input type="text" id="m-titulo" placeholder="Ex.: Reels — Matrículas abertas 2027"></div>
+      <div class="field"><label>Tipo</label>
+        <select id="m-cat"><option>Post</option><option>Reels</option><option>Stories</option><option>Carrossel</option><option>Outro</option></select></div>
+    </div>
+    <div class="field"><label>Legenda sugerida (com hashtags)</label><textarea id="m-legenda" placeholder="Texto para o gestor copiar e colar no Instagram"></textarea></div>
+    <div class="row2">
+      <div class="field"><label>Arquivo (foto ou vídeo, até 8 MB)</label><input type="file" id="m-arquivo" accept="image/*,video/*"></div>
+      <div class="field"><label>OU link externo (vídeos grandes)</label><input type="url" id="m-link" placeholder="https://drive.google.com/..."></div>
+    </div>
+    <div class="field" style="max-width:240px;"><label>Data para postar (o Sync avisa o gestor nesse dia)</label><input type="date" id="m-data"></div>
+    <button class="btn-primary" id="m-enviar">Enviar para os gestores</button>
+    <span class="hint" id="m-status" style="margin-left:10px;"></span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</div>
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { verificarAcesso, mostrarTelaBloqueio } from "./acesso.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import {
+  getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc, arrayUnion, arrayRemove
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyASApoPVmsNyTmcNSrxlTZ5yU7WGN7lR3o",
+  authDomain: "gestor-ead.firebaseapp.com",
+  projectId: "gestor-ead",
+  storageBucket: "gestor-ead.firebasestorage.app",
+  messagingSenderId: "690843825301",
+  appId: "1:690843825301:web:0c389349ba9eed8582179c",
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+const MAX_BYTES = 8 * 1024 * 1024;
+const CHUNK = 700000;        // caracteres base64 por documento (limite do Firestore ~1 MB)
+const ICONES = { Post:'🖼️', Reels:'🎬', Stories:'📱', Carrossel:'🗂️', Outro:'📎' };
+
+let ehAdmin = false, midias = [], filtro = 'todos', postadas = [];
+function hojeStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+function fmtData(d){ if(!d) return ''; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
+function fmtTam(b){ return b > 1048576 ? (b/1048576).toFixed(1)+' MB' : Math.round(b/1024)+' KB'; }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display='none',2600); }
+function baixados(){ try{ return JSON.parse(localStorage.getItem('midias-baixadas')||'[]'); }catch(e){ return []; } }
+function marcarBaixado(id){ try{ const l=baixados(); if(!l.includes(id)){ l.push(id); localStorage.setItem('midias-baixadas', JSON.stringify(l)); } }catch(e){} }
+
+document.getElementById('btn-back').addEventListener('click', () => window.location.href = 'index.html');
+document.getElementById('tabs-cat').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  filtro = b.dataset.cat;
+  document.querySelectorAll('#tabs-cat button').forEach(x => x.classList.toggle('active', x === b));
+  render();
+});
+
+onAuthStateChanged(auth, async (user) => {
+  if(!user){ window.location.href = 'index.html'; return; }
+  const acesso = await verificarAcesso(db, user);
+  if(!acesso.liberado){
+    document.getElementById('loading-screen').style.display = 'none';
+    mostrarTelaBloqueio(acesso, user, () => { window.location.href = 'index.html'; });
+    return;
+  }
+  ehAdmin = !!acesso.admin;
+  document.getElementById('admin-box').hidden = !ehAdmin;
+  try{
+    await carregar();
+    try{ const u = await getDoc(doc(db,'usuarios',user.uid)); postadas = (u.exists() && u.data().midiasPostadas) || []; }catch(e){ postadas = []; }
+    if(localStorage.getItem('midia-abrir-agenda')){ localStorage.removeItem('midia-abrir-agenda'); filtro = 'agenda'; document.querySelectorAll('#tabs-cat button').forEach(x => x.classList.toggle('active', x.dataset.cat === 'agenda')); }
+    render();
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+  }catch(err){
+    console.error(err);
+    document.getElementById('loading-screen').innerHTML = '⚠️ Não foi possível carregar as mídias.<br><small>' + escapeHtml(err.message || String(err)) + '</small><br><br>Verifique se as regras novas do Firestore foram publicadas (arquivo firestore.rules).';
+  }
+});
+
+async function carregar(){
+  const snap = await getDocs(collection(db, 'midias'));
+  midias = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.criadoEm||'').localeCompare(a.criadoEm||''));
+}
+
+function cardHtml(m){
+  const jaBaixou = baixados();
+  const jaPostou = postadas.includes(m.id);
+  const hoje = hojeStr();
+  let selo = '';
+  if(m.dataSugerida && !jaPostou){
+    if(m.dataSugerida < hoje) selo = '<span class="badge" style="top:auto;bottom:8px;background:var(--red);color:#fff;">⚠ Atrasada</span>';
+    else if(m.dataSugerida === hoje) selo = '<span class="badge" style="top:auto;bottom:8px;background:var(--gold);color:#1B1B14;">📅 Postar HOJE</span>';
+  }
+  return `
+    <div class="card" data-id="${m.id}" ${jaPostou ? 'style="opacity:.7;"' : ''}>
+      <div class="thumb">${m.thumb ? `<img src="${m.thumb}" alt="">` : (ICONES[m.categoria] || '📎')}
+        <span class="badge">${ICONES[m.categoria] || ''} ${escapeHtml(m.categoria || '')}</span>
+        ${jaPostou ? '<span class="badge baixado">✓ postado</span>' : jaBaixou.includes(m.id) ? '<span class="badge baixado">✓ baixado</span>' : ''}
+        ${selo}
+      </div>
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(m.titulo)}</div>
+        <div class="card-meta">${m.dataSugerida ? '📅 Postar em ' + fmtData(m.dataSugerida) + ' · ' : ''}${m.linkExterno ? 'Link externo' : fmtTam(m.tamanho || 0)}</div>
+        ${m.legenda ? `<div class="card-cap">${escapeHtml(m.legenda)}</div>` : ''}
+        <div class="card-actions">
+          <button class="btn-primary" data-act="baixar">${m.linkExterno ? '🔗 Abrir' : '⬇ Baixar'}</button>
+          ${m.legenda ? '<button class="btn-secondary" data-act="legenda">📋 Copiar legenda</button>' : ''}
+          <button class="btn-secondary" data-act="postei">${jaPostou ? '↩ Desfazer' : '✓ Já postei'}</button>
+          ${ehAdmin ? '<button class="btn-danger" data-act="excluir">Excluir</button>' : ''}
+        </div>
+      </div>
+    </div>`;
+}
+function secao(titulo, lista){
+  if(!lista.length) return '';
+  return `<h3 style="grid-column:1/-1;font-size:15px;margin-top:6px;">${titulo} <span style="color:var(--text-muted);font-size:12.5px;">(${lista.length})</span></h3>` + lista.map(cardHtml).join('');
+}
+function render(){
+  const grid = document.getElementById('grid');
+  if(filtro === 'agenda'){
+    const hoje = hojeStr();
+    const comData = midias.filter(m => m.dataSugerida);
+    const pend = comData.filter(m => !postadas.includes(m.id));
+    const atrasadas = pend.filter(m => m.dataSugerida < hoje).sort((a,b) => a.dataSugerida.localeCompare(b.dataSugerida));
+    const deHoje = pend.filter(m => m.dataSugerida === hoje);
+    const proximas = pend.filter(m => m.dataSugerida > hoje).sort((a,b) => a.dataSugerida.localeCompare(b.dataSugerida));
+    const feitas = comData.filter(m => postadas.includes(m.id));
+    grid.innerHTML = (secao('⚠️ Atrasadas — ainda não postadas', atrasadas) + secao('📅 Para postar hoje', deHoje) + secao('Próximas postagens', proximas) + secao('✓ Já postadas', feitas))
+      || `<div class="empty" style="grid-column:1/-1;">Nenhuma mídia com data de postagem. ${ehAdmin ? 'Ao enviar uma mídia, preencha "data para postar" e ela aparece aqui.' : 'Quando a coordenação marcar datas, o calendário aparece aqui.'}</div>`;
+    return;
+  }
+  const lista = midias.filter(m => filtro === 'todos' || m.categoria === filtro);
+  if(!lista.length){
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1;">${ehAdmin ? 'Nenhuma mídia ainda. Use o formulário acima para enviar a primeira.' : 'Ainda não há mídias disponíveis aqui. Quando a coordenação enviar, elas aparecem nesta tela.'}</div>`;
+    return;
+  }
+  grid.innerHTML = lista.map(cardHtml).join('');
+}
+
+document.getElementById('grid').addEventListener('click', async e => {
+  const btn = e.target.closest('button[data-act]'); if(!btn) return;
+  const id = btn.closest('.card').dataset.id;
+  const m = midias.find(x => x.id === id); if(!m) return;
+  const act = btn.dataset.act;
+  if(act === 'legenda'){
+    try{ await navigator.clipboard.writeText(m.legenda); toast('Legenda copiada! Cole no Instagram.'); }
+    catch(err){ prompt('Copie a legenda:', m.legenda); }
+  } else if(act === 'postei'){
+    const jaPostou = postadas.includes(id);
+    try{
+      await setDoc(doc(db, 'usuarios', auth.currentUser.uid), { midiasPostadas: jaPostou ? arrayRemove(id) : arrayUnion(id) }, { merge: true });
+      postadas = jaPostou ? postadas.filter(x => x !== id) : postadas.concat(id);
+      render(); toast(jaPostou ? 'Marcado como não postado.' : 'Boa! Marcado como postado. ✓');
+    }catch(err){ alert('Não foi possível salvar: ' + (err.message || err)); }
+  } else if(act === 'baixar'){
+    if(m.linkExterno){ marcarBaixado(id); window.open(m.linkExterno, '_blank', 'noopener'); render(); return; }
+    btn.disabled = true; const txt = btn.textContent; btn.textContent = 'Baixando…';
+    try{ await baixar(m); marcarBaixado(id); render(); toast('Pronto! Confira na pasta Downloads / Galeria.'); }
+    catch(err){ console.error(err); alert('Não foi possível baixar: ' + (err.message || err)); btn.disabled = false; btn.textContent = txt; }
+  } else if(act === 'excluir'){
+    if(!confirm(`Excluir "${m.titulo}" para todos os gestores?`)) return;
+    try{
+      const partes = await getDocs(collection(db, 'midias', id, 'partes'));
+      for(const p of partes.docs) await deleteDoc(p.ref);
+      await deleteDoc(doc(db, 'midias', id));
+      await carregar(); render(); toast('Mídia excluída.');
+    }catch(err){ alert('Erro ao excluir: ' + (err.message || err)); }
+  }
+});
+
+async function baixar(m){
+  const snap = await getDocs(collection(db, 'midias', m.id, 'partes'));
+  const partes = snap.docs.map(d => d.data()).sort((a,b) => a.i - b.i);
+  if(!partes.length || partes.length !== m.partes) throw new Error('arquivo incompleto no servidor');
+  const b64 = partes.map(p => p.dados).join('');
+  const blob = await (await fetch(`data:${m.tipoMime || 'application/octet-stream'};base64,${b64}`)).blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = m.nomeArquivo || (m.titulo || 'midia');
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+/* ---------- Envio (somente administrador) ---------- */
+function lerBase64(file){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1] || '');
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(file);
+  });
+}
+function miniaturaImagem(file){
+  return new Promise(res => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => { res(desenhar(img, img.naturalWidth, img.naturalHeight)); URL.revokeObjectURL(url); };
+    img.onerror = () => { res(''); URL.revokeObjectURL(url); };
+    img.src = url;
+  });
+}
+function miniaturaVideo(file){
+  return new Promise(res => {
+    const url = URL.createObjectURL(file); const v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.preload = 'metadata'; v.src = url;
+    const fim = (r) => { res(r); URL.revokeObjectURL(url); };
+    v.onloadeddata = () => { v.currentTime = Math.min(0.5, (v.duration || 1) / 2); };
+    v.onseeked = () => { try{ fim(desenhar(v, v.videoWidth, v.videoHeight)); }catch(e){ fim(''); } };
+    v.onerror = () => fim('');
+    setTimeout(() => fim(''), 6000);
+  });
+}
+function desenhar(src, w, h){
+  if(!w || !h) return '';
+  const lado = 420, esc = Math.min(1, lado / Math.max(w, h));
+  const c = document.createElement('canvas'); c.width = Math.round(w*esc); c.height = Math.round(h*esc);
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.7);
+}
+
+document.getElementById('m-enviar').addEventListener('click', async () => {
+  if(!ehAdmin) return;
+  const titulo = document.getElementById('m-titulo').value.trim();
+  const categoria = document.getElementById('m-cat').value;
+  const legenda = document.getElementById('m-legenda').value.trim();
+  const dataSugerida = document.getElementById('m-data').value;
+  const link = document.getElementById('m-link').value.trim();
+  const file = document.getElementById('m-arquivo').files[0];
+  const status = document.getElementById('m-status');
+  if(!titulo){ alert('Dê um título para a mídia.'); return; }
+  if(!file && !link){ alert('Escolha um arquivo ou cole um link externo.'); return; }
+  if(file && file.size > MAX_BYTES){ alert(`O arquivo tem ${fmtTam(file.size)}. O limite é 8 MB. Para arquivos maiores, suba no Google Drive e cole o link.`); return; }
+  if(link && !/^https?:\/\//i.test(link)){ alert('O link precisa começar com http:// ou https://'); return; }
+  const btn = document.getElementById('m-enviar'); btn.disabled = true;
+  const ref = doc(collection(db, 'midias'));
+  const escritas = [];
+  try{
+    const dados = { titulo, categoria, legenda, dataSugerida: dataSugerida || '', criadoEm: new Date().toISOString(), criadoPor: auth.currentUser.email || '' };
+    if(file){
+      status.textContent = 'Preparando arquivo…';
+      const b64 = await lerBase64(file);
+      dados.thumb = file.type.startsWith('image/') ? await miniaturaImagem(file) : file.type.startsWith('video/') ? await miniaturaVideo(file) : '';
+      dados.nomeArquivo = file.name; dados.tipoMime = file.type || 'application/octet-stream'; dados.tamanho = file.size;
+      const n = Math.ceil(b64.length / CHUNK); dados.partes = n;
+      for(let i = 0; i < n; i++){
+        status.textContent = `Enviando… ${i+1}/${n}`;
+        const pRef = doc(collection(db, 'midias', ref.id, 'partes'));
+        await setDoc(pRef, { i, dados: b64.slice(i*CHUNK, (i+1)*CHUNK) });
+        escritas.push(pRef);
+      }
+    } else {
+      dados.linkExterno = link; dados.partes = 0; dados.tamanho = 0; dados.thumb = '';
+    }
+    await setDoc(ref, dados);
+    ['m-titulo','m-legenda','m-data','m-link','m-arquivo'].forEach(id => document.getElementById(id).value = '');
+    status.textContent = '';
+    await carregar(); render(); toast('Mídia enviada! Os gestores já podem baixar.');
+  }catch(err){
+    console.error(err);
+    for(const p of escritas){ try{ await deleteDoc(p); }catch(e){} }
+    status.textContent = '';
+    alert('Não foi possível enviar: ' + (err.message || err) + '\nSe a mensagem falar em permissão, publique as regras novas (firestore.rules).');
+  }
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>

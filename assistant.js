@@ -133,6 +133,7 @@
       if(/nova\s+transa[çc][ãa]o/.test(t) || (/abr[ae]/.test(t) && /transa[çc][ãa]o/.test(t))) return 'abrir_nova_transacao';
       if(/urgente|priorit[áa]rio|prioridade|mais importante|resumo (do dia|de hoje)/.test(t)) return 'urgente_hoje';
       if(/gera(r)?\s+(o\s+)?pdf|baixa(r)?\s+(o\s+)?pdf/.test(t)) return 'gerar_pdf';
+      if(/(m[ií]dias?|instagram|postagens?|o que (eu )?(tenho|preciso) (pra|para|de) postar)/.test(t)) return 'navegar_midias';
       if(/financeiro/.test(t)) return 'navegar_financeiro';
       if(/plano de a[çc][oõ]es/.test(t)) return 'navegar_plano';
       if(/relat[óo]rio/.test(t)) return 'navegar_relatorios';
