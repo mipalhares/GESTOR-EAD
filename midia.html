@@ -81,7 +81,7 @@
 
   <div class="admin-box" id="admin-box" hidden>
     <h3>➕ Enviar nova mídia para os gestores</h3>
-    <p class="hint">Até 10 arquivos por publicação. Arquivos de até <b>8 MB</b> ficam guardados no próprio app; <b>acima disso (vídeos/Reels), o app envia automaticamente para o GitHub</b> (até 1 GB por arquivo) — é só configurar uma vez, logo abaixo.</p>
+    <p class="hint">É só escolher os arquivos e enviar: até 10 por publicação, cada um com até <b>200 MB</b>. Dica: vídeos do celular vêm muito pesados — se puder, comprima (720p/1080p) para ~20–30 MB; o download dos gestores fica bem mais rápido e poupa o espaço gratuito do app.</p>
     <div class="row2">
       <div class="field"><label>Título</label><input type="text" id="m-titulo" placeholder="Ex.: Reels — Matrículas abertas 2027"></div>
       <div class="field"><label>Tipo</label>
@@ -94,7 +94,7 @@
     </div>
     <div id="m-lista" class="hint" style="margin-bottom:8px;"></div>
     <details id="gh-box" style="margin-bottom:12px;background:var(--panel-alt);border:1px solid var(--border);border-radius:10px;padding:10px 14px;">
-      <summary style="cursor:pointer;font-size:13px;">⚙️ Arquivos grandes (acima de 8 MB): <b id="gh-status">não configurado</b></summary>
+      <summary style="cursor:pointer;font-size:13px;">⚙️ Opcional — arquivos acima de 200 MB (GitHub): <b id="gh-status">não configurado</b></summary>
       <ol class="hint" style="margin:10px 0 8px 18px;padding:0;">
         <li>Abra <b>github.com/settings/personal-access-tokens/new</b> (logada na sua conta do GitHub).</li>
         <li>Em <b>Token name</b> escreva <i>PoloSync</i>. Em <b>Expiration</b> escolha 1 ano (Custom).</li>
@@ -124,7 +124,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/fireba
 import { verificarAcesso, mostrarTelaBloqueio } from "./acesso.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
-  getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc, arrayUnion, arrayRemove
+  getFirestore, collection, doc, setDoc, deleteDoc, getDocs, getDoc, arrayUnion, arrayRemove, writeBatch, Bytes
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -139,8 +139,8 @@ const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 
-const MAX_BYTES = 8 * 1024 * 1024;
-const CHUNK = 700000;        // caracteres base64 por documento (limite do Firestore ~1 MB)
+const MAX_BYTES = 200 * 1024 * 1024;   // até aqui o arquivo fica guardado no próprio app
+const CHUNK = 900000;                  // bytes por documento (limite do Firestore: 1 MiB)
 const ICONES = { Post:'🖼️', Reels:'🎬', Stories:'📱', Carrossel:'🗂️', Outro:'📎' };
 
 let ehAdmin = false, midias = [], filtro = 'todos', postadas = [];
@@ -310,7 +310,7 @@ document.getElementById('grid').addEventListener('click', async e => {
     if(!confirm(`Excluir "${m.titulo}" para todos os gestores?`)) return;
     try{
       const partes = await getDocs(collection(db, 'midias', id, 'partes'));
-      for(const p of partes.docs) await deleteDoc(p.ref);
+      for(let k = 0; k < partes.docs.length; k += 400){ const lote = writeBatch(db); partes.docs.slice(k, k + 400).forEach(p => lote.delete(p.ref)); await lote.commit(); }
       for(const a of arquivosDe(m)){
         if(a.assetId && ghToken()){ try{ await ghApi(`/repos/${GH_REPO}/releases/assets/${a.assetId}`, { method:'DELETE' }); }catch(e){ console.warn('Não removeu do GitHub', e); } }
       }
@@ -338,8 +338,8 @@ async function baixar(m, idx){
     }
     const partes = (porArq[k] || []).sort((x,y) => x.i - y.i);
     if(!partes.length || partes.length !== a.partes) throw new Error('arquivo incompleto no servidor');
-    const b64 = partes.map(p => p.dados).join('');
-    const blob = await (await fetch(`data:${a.mime || 'application/octet-stream'};base64,${b64}`)).blob();
+    const pedacos = partes.map(p => p.b ? p.b.toUint8Array() : (() => { const bin = atob(p.dados); const u = new Uint8Array(bin.length); for(let q = 0; q < bin.length; q++) u[q] = bin.charCodeAt(q); return u; })());
+    const blob = new Blob(pedacos, { type: a.mime || 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const el = document.createElement('a');
     el.href = url; el.download = (a.papel === 'capa' ? 'capa-' : '') + (a.nome || m.titulo || 'midia');
@@ -385,7 +385,7 @@ function desenhar(src, w, h){
   return c.toDataURL('image/jpeg', 0.7);
 }
 
-const MAX_ARQUIVOS = 10, MAX_TOTAL = 25 * 1024 * 1024; // MAX_TOTAL vale só para o que fica no banco (arquivos de até 8 MB)
+const MAX_ARQUIVOS = 10, MAX_TOTAL = 400 * 1024 * 1024; // total guardado no próprio app por publicação
 function atualizarListaEscolhida(){
   const fs = [...document.getElementById('m-arquivo').files], capa = document.getElementById('m-capa').files[0];
   const todos = fs.concat(capa ? [capa] : []);
@@ -397,8 +397,9 @@ function atualizarListaEscolhida(){
   el.innerHTML = (capa ? `🖼️ Capa: ${escapeHtml(capa.name)} (${fmtTam(capa.size)})<br>` : '') +
     fs.map(f => `${f.type.startsWith('video/') ? '🎬' : '📷'} ${escapeHtml(f.name)} (${fmtTam(f.size)})`).join('<br>') +
     `<br><b>Total: ${fmtTam(tot)}</b>` +
-    (grandes.length ? `<br>☁️ ${grandes.length} arquivo(s) acima de 8 MB vão para o GitHub${ghToken() ? '' : ' <span style="color:var(--red);">— configure o token acima antes de enviar</span>'}.` : '') +
-    (pequenos > MAX_TOTAL ? ' <span style="color:var(--red);">— os arquivos menores passam de 25 MB juntos</span>' : '');
+    (grandes.length ? `<br>☁️ ${grandes.length} arquivo(s) acima de 200 MB vão para o GitHub${ghToken() ? '' : ' <span style="color:var(--red);">— configure o token (opção abaixo) ou comprima o vídeo</span>'}.` : '') +
+    (todos.some(f => f.size > 60*1024*1024 && f.size <= MAX_BYTES) ? '<br><span style="color:var(--gold);">⚠ Arquivo pesado (acima de 60 MB): vai funcionar, mas cada download gasta bastante da cota gratuita. Se puder, comprima antes.</span>' : '') +
+    (pequenos > MAX_TOTAL ? ' <span style="color:var(--red);">— passou de 400 MB juntos</span>' : '');
 }
 ghAtualizarStatus();
 document.getElementById('gh-salvar').addEventListener('click', async () => {
@@ -436,8 +437,8 @@ document.getElementById('m-enviar').addEventListener('click', async () => {
   const todosSel = [...midiasSel, ...(capa ? [capa] : [])];
   const enorme = todosSel.find(f => f.size > MAX_GRANDE);
   if(enorme){ alert(`"${enorme.name}" tem ${fmtTam(enorme.size)}. O limite é 1 GB por arquivo.`); return; }
-  if(todosSel.some(f => f.size > MAX_BYTES) && !ghToken()){ alert('Há arquivo acima de 8 MB. Abra "⚙️ Arquivos grandes", cole o token do GitHub e clique em "Salvar e testar" antes de enviar.'); document.getElementById('gh-box').open = true; return; }
-  if(todosSel.filter(f => f.size <= MAX_BYTES).reduce((t,f) => t + f.size, 0) > MAX_TOTAL){ alert('Os arquivos de até 8 MB passaram de 25 MB juntos. Envie em duas publicações.'); return; }
+  if(todosSel.some(f => f.size > MAX_BYTES) && !ghToken()){ alert('Há arquivo acima de 200 MB. Comprima o vídeo (recomendado) ou configure o GitHub na opção "⚙️ Opcional" antes de enviar.'); document.getElementById('gh-box').open = true; return; }
+  if(todosSel.filter(f => f.size <= MAX_BYTES).reduce((t,f) => t + f.size, 0) > MAX_TOTAL){ alert('Os arquivos passaram de 400 MB juntos. Envie em duas publicações ou comprima os vídeos.'); return; }
   if(link && !/^https?:\/\//i.test(link)){ alert('O link precisa começar com http:// ou https://'); return; }
   const btn = document.getElementById('m-enviar'); btn.disabled = true;
   const ref = doc(collection(db, 'midias'));
@@ -460,13 +461,17 @@ document.getElementById('m-enviar').addEventListener('click', async () => {
           continue;
         }
         status.textContent = `Preparando ${k+1}/${fila.length}: ${f.name}…`;
-        const b64 = await lerBase64(f);
-        const n = Math.ceil(b64.length / CHUNK);
-        for(let i = 0; i < n; i++){
-          status.textContent = `Enviando ${k+1}/${fila.length} (${i+1}/${n})…`;
-          const pRef = doc(collection(db, 'midias', ref.id, 'partes'));
-          await setDoc(pRef, { f: k, i, dados: b64.slice(i*CHUNK, (i+1)*CHUNK) });
-          escritas.push(pRef);
+        const n = Math.ceil(f.size / CHUNK);
+        for(let i = 0; i < n; i += 6){
+          status.textContent = `Enviando ${k+1}/${fila.length}: ${Math.round(i / n * 100)}%…`;
+          const lote = writeBatch(db);
+          for(let j = i; j < Math.min(n, i + 6); j++){
+            const buf = new Uint8Array(await f.slice(j * CHUNK, (j + 1) * CHUNK).arrayBuffer());
+            const pRef = doc(collection(db, 'midias', ref.id, 'partes'));
+            lote.set(pRef, { f: k, i: j, b: Bytes.fromUint8Array(buf) });
+            escritas.push(pRef);
+          }
+          await lote.commit();
         }
         dados.arquivos.push({ papel, nome: f.name, mime: f.type || 'application/octet-stream', tamanho: f.size, partes: n });
         dados.tamanho += f.size;
