@@ -81,7 +81,7 @@
 
   <div class="admin-box" id="admin-box" hidden>
     <h3>➕ Enviar nova mídia para os gestores</h3>
-    <p class="hint">Cada imagem ou vídeo curto pode ter até <b>8 MB</b> (até 10 arquivos e 25 MB por publicação). Para vídeo maior (Reels longos), cole o link do Google Drive/Dropbox no campo "Link externo" — o gestor abre e baixa por lá.</p>
+    <p class="hint">Até 10 arquivos por publicação. Arquivos de até <b>8 MB</b> ficam guardados no próprio app; <b>acima disso (vídeos/Reels), o app envia automaticamente para o GitHub</b> (até 1 GB por arquivo) — é só configurar uma vez, logo abaixo.</p>
     <div class="row2">
       <div class="field"><label>Título</label><input type="text" id="m-titulo" placeholder="Ex.: Reels — Matrículas abertas 2027"></div>
       <div class="field"><label>Tipo</label>
@@ -93,6 +93,22 @@
       <div class="field"><label>Imagem de capa (opcional — ideal para Reels)</label><input type="file" id="m-capa" accept="image/*"></div>
     </div>
     <div id="m-lista" class="hint" style="margin-bottom:8px;"></div>
+    <details id="gh-box" style="margin-bottom:12px;background:var(--panel-alt);border:1px solid var(--border);border-radius:10px;padding:10px 14px;">
+      <summary style="cursor:pointer;font-size:13px;">⚙️ Arquivos grandes (acima de 8 MB): <b id="gh-status">não configurado</b></summary>
+      <ol class="hint" style="margin:10px 0 8px 18px;padding:0;">
+        <li>Abra <b>github.com/settings/personal-access-tokens/new</b> (logada na sua conta do GitHub).</li>
+        <li>Em <b>Token name</b> escreva <i>PoloSync</i>. Em <b>Expiration</b> escolha 1 ano (Custom).</li>
+        <li>Em <b>Repository access</b> marque <b>Only select repositories</b> e escolha <b>GESTOR-EAD</b>.</li>
+        <li>Em <b>Permissions → Repository permissions</b>, ache <b>Contents</b> e mude para <b>Read and write</b>.</li>
+        <li>Clique em <b>Generate token</b> e copie o código que aparece (começa com <i>github_pat_</i>). Cole abaixo.</li>
+      </ol>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input type="password" id="gh-token" placeholder="github_pat_..." style="flex:1;min-width:220px;background:var(--panel);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-size:13px;">
+        <button type="button" class="btn-secondary" id="gh-salvar">Salvar e testar</button>
+        <button type="button" class="btn-danger" id="gh-limpar">Remover</button>
+      </div>
+      <p class="hint" style="margin:8px 0 0 0;">O código fica guardado só neste navegador (não vai para o banco de dados nem para os gestores).</p>
+    </details>
     <div class="field"><label>OU link externo (vídeos grandes, em vez de arquivos)</label><input type="url" id="m-link" placeholder="https://drive.google.com/..."></div>
     <div class="field" style="max-width:240px;"><label>Data para postar (o Sync avisa o gestor nesse dia)</label><input type="date" id="m-data"></div>
     <button class="btn-primary" id="m-enviar">Enviar para os gestores</button>
@@ -130,6 +146,41 @@ const ICONES = { Post:'🖼️', Reels:'🎬', Stories:'📱', Carrossel:'🗂�
 let ehAdmin = false, midias = [], filtro = 'todos', postadas = [];
 function hojeStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
+const GH_REPO = 'mipalhares/GESTOR-EAD';
+const GH_TAG = 'midias';
+const MAX_GRANDE = 1024 * 1024 * 1024;
+function ghToken(){ try{ return localStorage.getItem('gh-token-midias') || ''; }catch(e){ return ''; } }
+function ghAtualizarStatus(){
+  const ok = !!ghToken();
+  const el = document.getElementById('gh-status'); if(!el) return;
+  el.textContent = ok ? 'configurado ✓' : 'não configurado'; el.style.color = ok ? 'var(--teal)' : 'var(--gold)';
+}
+async function ghApi(path, opts = {}){
+  const r = await fetch('https://api.github.com' + path, { ...opts, headers: { 'Accept':'application/vnd.github+json', 'Authorization':'Bearer ' + ghToken(), ...(opts.headers||{}) } });
+  return r;
+}
+async function ghGarantirRelease(){
+  let r = await ghApi(`/repos/${GH_REPO}/releases/tags/${GH_TAG}`);
+  if(r.status === 404){
+    r = await ghApi(`/repos/${GH_REPO}/releases`, { method:'POST', body: JSON.stringify({ tag_name: GH_TAG, name: 'Mídias PoloSync', body: 'Arquivos de mídia enviados pelo app.', prerelease: true }) });
+  }
+  if(!r.ok){ const t = await r.text(); throw new Error(r.status === 401 || r.status === 403 ? 'o GitHub recusou o código (token) — confira as permissões (Contents: Read and write) e o repositório GESTOR-EAD' : `GitHub respondeu ${r.status}: ${t.slice(0,120)}`); }
+  return r.json();
+}
+function ghEnviarArquivo(file, uploadUrlBase, nomeSeguro, onProgress){
+  return new Promise((resolve, reject) => {
+    const url = uploadUrlBase.replace(/\{\?name,label\}$/, '') + '?name=' + encodeURIComponent(nomeSeguro);
+    const x = new XMLHttpRequest();
+    x.open('POST', url);
+    x.setRequestHeader('Authorization', 'Bearer ' + ghToken());
+    x.setRequestHeader('Accept', 'application/vnd.github+json');
+    x.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    x.upload.onprogress = e => { if(e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100)); };
+    x.onload = () => { if(x.status >= 200 && x.status < 300){ try{ resolve(JSON.parse(x.responseText)); }catch(e){ reject(new Error('resposta inesperada do GitHub')); } } else reject(new Error(`GitHub respondeu ${x.status}: ${x.responseText.slice(0,120)}`)); };
+    x.onerror = () => reject(new Error('falha de rede ao enviar para o GitHub'));
+    x.send(file);
+  });
+}
 function arquivosDe(m){
   if(Array.isArray(m.arquivos)) return m.arquivos;
   if(m.partes > 0) return [{ papel:'midia', nome:m.nomeArquivo || m.titulo, mime:m.tipoMime, tamanho:m.tamanho, partes:m.partes }];
@@ -260,6 +311,9 @@ document.getElementById('grid').addEventListener('click', async e => {
     try{
       const partes = await getDocs(collection(db, 'midias', id, 'partes'));
       for(const p of partes.docs) await deleteDoc(p.ref);
+      for(const a of arquivosDe(m)){
+        if(a.assetId && ghToken()){ try{ await ghApi(`/repos/${GH_REPO}/releases/assets/${a.assetId}`, { method:'DELETE' }); }catch(e){ console.warn('Não removeu do GitHub', e); } }
+      }
       await deleteDoc(doc(db, 'midias', id));
       await carregar(); render(); toast('Mídia excluída.');
     }catch(err){ alert('Erro ao excluir: ' + (err.message || err)); }
@@ -268,13 +322,21 @@ document.getElementById('grid').addEventListener('click', async e => {
 
 async function baixar(m, idx){
   const arqs = arquivosDe(m);
-  const snap = await getDocs(collection(db, 'midias', m.id, 'partes'));
-  const porArq = {};
-  snap.docs.forEach(d => { const p = d.data(); const f = p.f ?? 0; (porArq[f] = porArq[f] || []).push(p); });
   const alvo = idx === null ? arqs.map((_, k) => k) : [idx];
-  let primeiro = true;
+  const porArq = {};
+  if(alvo.some(k => !arqs[k].url)){
+    const snap = await getDocs(collection(db, 'midias', m.id, 'partes'));
+    snap.docs.forEach(d => { const p = d.data(); const f = p.f ?? 0; (porArq[f] = porArq[f] || []).push(p); });
+  }
   for(const k of alvo){
-    const a = arqs[k]; const partes = (porArq[k] || []).sort((x,y) => x.i - y.i);
+    const a = arqs[k];
+    if(a.url){
+      const el = document.createElement('a'); el.href = a.url; el.rel = 'noopener'; el.download = a.nome || '';
+      document.body.appendChild(el); el.click(); el.remove();
+      if(alvo.length > 1) await new Promise(r => setTimeout(r, 900));
+      continue;
+    }
+    const partes = (porArq[k] || []).sort((x,y) => x.i - y.i);
     if(!partes.length || partes.length !== a.partes) throw new Error('arquivo incompleto no servidor');
     const b64 = partes.map(p => p.dados).join('');
     const blob = await (await fetch(`data:${a.mime || 'application/octet-stream'};base64,${b64}`)).blob();
@@ -323,16 +385,38 @@ function desenhar(src, w, h){
   return c.toDataURL('image/jpeg', 0.7);
 }
 
-const MAX_ARQUIVOS = 10, MAX_TOTAL = 25 * 1024 * 1024;
+const MAX_ARQUIVOS = 10, MAX_TOTAL = 25 * 1024 * 1024; // MAX_TOTAL vale só para o que fica no banco (arquivos de até 8 MB)
 function atualizarListaEscolhida(){
   const fs = [...document.getElementById('m-arquivo').files], capa = document.getElementById('m-capa').files[0];
-  const tot = fs.reduce((t,f) => t + f.size, 0) + (capa ? capa.size : 0);
+  const todos = fs.concat(capa ? [capa] : []);
+  const tot = todos.reduce((t,f) => t + f.size, 0);
+  const pequenos = todos.filter(f => f.size <= MAX_BYTES).reduce((t,f) => t + f.size, 0);
+  const grandes = todos.filter(f => f.size > MAX_BYTES);
   const el = document.getElementById('m-lista');
   if(!fs.length && !capa){ el.textContent = ''; return; }
   el.innerHTML = (capa ? `🖼️ Capa: ${escapeHtml(capa.name)} (${fmtTam(capa.size)})<br>` : '') +
     fs.map(f => `${f.type.startsWith('video/') ? '🎬' : '📷'} ${escapeHtml(f.name)} (${fmtTam(f.size)})`).join('<br>') +
-    `<br><b>Total: ${fmtTam(tot)}</b>${tot > MAX_TOTAL ? ' <span style="color:var(--red);">— passou de 25 MB</span>' : ''}`;
+    `<br><b>Total: ${fmtTam(tot)}</b>` +
+    (grandes.length ? `<br>☁️ ${grandes.length} arquivo(s) acima de 8 MB vão para o GitHub${ghToken() ? '' : ' <span style="color:var(--red);">— configure o token acima antes de enviar</span>'}.` : '') +
+    (pequenos > MAX_TOTAL ? ' <span style="color:var(--red);">— os arquivos menores passam de 25 MB juntos</span>' : '');
 }
+ghAtualizarStatus();
+document.getElementById('gh-salvar').addEventListener('click', async () => {
+  const t = document.getElementById('gh-token').value.trim();
+  if(!t){ alert('Cole o código do GitHub (começa com github_pat_).'); return; }
+  try{ localStorage.setItem('gh-token-midias', t); }catch(e){ alert('Seu navegador não deixou guardar o código (modo privado?).'); return; }
+  const btn = document.getElementById('gh-salvar'); btn.disabled = true; btn.textContent = 'Testando…';
+  try{
+    await ghGarantirRelease();
+    document.getElementById('gh-token').value = ''; ghAtualizarStatus(); atualizarListaEscolhida();
+    toast('Pronto! Arquivos grandes liberados ✓');
+  }catch(err){
+    try{ localStorage.removeItem('gh-token-midias'); }catch(e){}
+    ghAtualizarStatus(); alert('Não funcionou: ' + (err.message || err));
+  }
+  btn.disabled = false; btn.textContent = 'Salvar e testar';
+});
+document.getElementById('gh-limpar').addEventListener('click', () => { try{ localStorage.removeItem('gh-token-midias'); }catch(e){} ghAtualizarStatus(); atualizarListaEscolhida(); toast('Código removido deste navegador.'); });
 document.getElementById('m-arquivo').addEventListener('change', atualizarListaEscolhida);
 document.getElementById('m-capa').addEventListener('change', atualizarListaEscolhida);
 
@@ -349,20 +433,32 @@ document.getElementById('m-enviar').addEventListener('click', async () => {
   if(!titulo){ alert('Dê um título para a mídia.'); return; }
   if(!midiasSel.length && !link){ alert('Escolha pelo menos um arquivo ou cole um link externo.'); return; }
   if(midiasSel.length > MAX_ARQUIVOS){ alert('O máximo é 10 arquivos por publicação.'); return; }
-  const grande = [...midiasSel, ...(capa ? [capa] : [])].find(f => f.size > MAX_BYTES);
-  if(grande){ alert(`"${grande.name}" tem ${fmtTam(grande.size)}. O limite é 8 MB por arquivo. Para arquivos maiores, suba no Google Drive e cole o link.`); return; }
-  if([...midiasSel, ...(capa ? [capa] : [])].reduce((t,f) => t + f.size, 0) > MAX_TOTAL){ alert('O total passou de 25 MB. Envie em duas publicações ou use um link externo para o vídeo maior.'); return; }
+  const todosSel = [...midiasSel, ...(capa ? [capa] : [])];
+  const enorme = todosSel.find(f => f.size > MAX_GRANDE);
+  if(enorme){ alert(`"${enorme.name}" tem ${fmtTam(enorme.size)}. O limite é 1 GB por arquivo.`); return; }
+  if(todosSel.some(f => f.size > MAX_BYTES) && !ghToken()){ alert('Há arquivo acima de 8 MB. Abra "⚙️ Arquivos grandes", cole o token do GitHub e clique em "Salvar e testar" antes de enviar.'); document.getElementById('gh-box').open = true; return; }
+  if(todosSel.filter(f => f.size <= MAX_BYTES).reduce((t,f) => t + f.size, 0) > MAX_TOTAL){ alert('Os arquivos de até 8 MB passaram de 25 MB juntos. Envie em duas publicações.'); return; }
   if(link && !/^https?:\/\//i.test(link)){ alert('O link precisa começar com http:// ou https://'); return; }
   const btn = document.getElementById('m-enviar'); btn.disabled = true;
   const ref = doc(collection(db, 'midias'));
-  const escritas = [];
+  const escritas = [], escritasGh = [];
   try{
     const dados = { titulo, categoria, legenda, dataSugerida: dataSugerida || '', criadoEm: new Date().toISOString(), criadoPor: auth.currentUser.email || '' };
     if(midiasSel.length){
       const fila = (capa ? [{ f: capa, papel: 'capa' }] : []).concat(midiasSel.map(f => ({ f, papel: 'midia' })));
       dados.arquivos = []; dados.tamanho = 0;
+      let release = null;
       for(let k = 0; k < fila.length; k++){
         const { f, papel } = fila[k];
+        if(f.size > MAX_BYTES){
+          if(!release){ status.textContent = 'Conectando ao GitHub…'; release = await ghGarantirRelease(); }
+          const seguro = `${Date.now().toString(36)}-${k}-` + f.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9._-]+/g,'_');
+          const asset = await ghEnviarArquivo(f, release.upload_url, seguro, pct => { status.textContent = `Enviando ${k+1}/${fila.length} para o GitHub: ${pct}%…`; });
+          escritasGh.push(asset.id);
+          dados.arquivos.push({ papel, nome: f.name, mime: f.type || 'application/octet-stream', tamanho: f.size, partes: 0, url: asset.browser_download_url, assetId: asset.id });
+          dados.tamanho += f.size;
+          continue;
+        }
         status.textContent = `Preparando ${k+1}/${fila.length}: ${f.name}…`;
         const b64 = await lerBase64(f);
         const n = Math.ceil(b64.length / CHUNK);
@@ -391,6 +487,7 @@ document.getElementById('m-enviar').addEventListener('click', async () => {
   }catch(err){
     console.error(err);
     for(const p of escritas){ try{ await deleteDoc(p); }catch(e){} }
+    for(const gid of escritasGh){ try{ await ghApi(`/repos/${GH_REPO}/releases/assets/${gid}`, { method:'DELETE' }); }catch(e){} }
     status.textContent = '';
     alert('Não foi possível enviar: ' + (err.message || err) + '\nSe a mensagem falar em permissão, publique as regras novas (firestore.rules).');
   }
