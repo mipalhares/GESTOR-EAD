@@ -63,7 +63,7 @@ export function mostrarTelaBloqueio(acesso, user, onSair){
 
   const div = document.createElement('div');
   div.id = 'tela-bloqueio';
-  div.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0f1722;display:flex;align-items:center;justify-content:center;padding:20px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;';
+  div.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(160deg,#0A2463,#1D4ED8 65%,#4F8CFF);display:flex;align-items:center;justify-content:center;padding:20px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;';
   div.innerHTML = `
     <div style="background:#fff;color:#1b2430;max-width:420px;width:100%;border-radius:16px;padding:28px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.4);">
       <img src="icon-192.png" alt="PoloSync" style="width:72px;height:72px;border-radius:16px;">

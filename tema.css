@@ -1,0 +1,141 @@
+/* ============================================================
+   PoloSync — tema azul · branco · amarelo
+   Carregado depois do <style> de cada página: sobrescreve as cores.
+   ============================================================ */
+:root{
+  --bg:#F1F5FD;            /* fundo da página */
+  --panel:#FFFFFF;         /* cartões */
+  --panel-alt:#EAF1FF;     /* campos / áreas internas */
+  --border:#D5E0F4;
+  --text:#0E1E45;
+  --text-muted:#5A6B91;
+  --muted:#5A6B91;
+  --gold:#FFC62B;          /* amarelo — destaque / ações principais */
+  --teal:#1D6FE8;          /* "sucesso" agora é azul */
+  --blue:#2F6BFF;
+  --red:#E5484D;
+  --primary:#1D4ED8;
+  --navy:#0A2463;
+  --navy-2:#1D4ED8;
+  --tag-b2b:#2F6BFF; --tag-b2c:#F2A900;
+  --sombra:0 1px 2px rgba(10,36,99,.06), 0 8px 24px rgba(10,36,99,.07);
+  --sombra-forte:0 12px 40px rgba(10,36,99,.18);
+}
+
+html{-webkit-text-size-adjust:100%;}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);}
+h1,h2,h3,.metric .value,.auth-box h1{
+  font-family:'Inter',system-ui,sans-serif !important;font-weight:700 !important;letter-spacing:-.02em;
+}
+
+/* ---------- Cabeçalho azul ---------- */
+#app > .polobar,
+#app > .topbar:first-child,
+#app > header{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 100%);
+  color:#fff;border-bottom:none;
+  box-shadow:0 4px 18px rgba(10,36,99,.25);
+}
+#app > .topbar:first-child h1,
+#app > header h1{color:#fff;}
+#app > .polobar label,
+#app > .topbar:first-child label{color:#BFD2FF !important;font-weight:600;letter-spacing:.04em;}
+#app > .polobar select,
+#app > .topbar:first-child select{
+  background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:10px;
+}
+#app > .polobar select option,
+#app > .topbar:first-child select option{color:#0E1E45;background:#fff;}
+#app > .polobar .small-btn,
+#app > .topbar:first-child .small-btn,
+#app > .topbar:first-child #btn-back,
+#btn-back{
+  background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:10px;
+}
+#app > .polobar .small-btn:hover,#app > .topbar:first-child #btn-back:hover{background:rgba(255,255,255,.24);}
+#app > .polobar #user-email{color:#D6E3FF;}
+#app > .polobar #btn-admin{background:var(--gold);color:var(--navy);border-color:var(--gold);font-weight:700;}
+
+/* ---------- Botões ---------- */
+.btn-primary,#btn-new-evento,#btn-new-lead,#btn-new-report,#btn-new-acao,#btn-new-transacao,.sync-fab:not(.listening):not(.speaking){
+  background:var(--gold) !important;color:var(--navy) !important;font-weight:700;border:none;
+  border-radius:10px;box-shadow:0 2px 0 rgba(10,36,99,.12),0 6px 16px rgba(255,198,43,.35);
+  transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+.btn-primary:hover,#btn-new-evento:hover,#btn-new-report:hover,#btn-new-acao:hover{filter:brightness(1.05);transform:translateY(-1px);}
+.btn-pdf,#btn-whatsapp{background:var(--navy-2) !important;color:#fff !important;border-radius:10px;border:none;}
+.btn-secondary,.small-btn{border-color:var(--border);color:var(--navy-2);background:#fff;border-radius:10px;}
+.btn-secondary:hover,.small-btn:hover{background:var(--panel-alt);}
+.btn-danger{color:var(--red);}
+.sync-fab:not(.listening):not(.speaking){box-shadow:0 8px 24px rgba(29,78,216,.35),0 0 0 4px rgba(255,198,43,.35) !important;}
+.sync-fab.listening{background:var(--red) !important;color:#fff !important;}
+.sync-fab.speaking{background:var(--navy-2) !important;color:#fff !important;}
+[hidden]{display:none !important;}
+
+/* ---------- Abas ---------- */
+.maintabs{padding:14px 28px 4px 28px;}
+.maintabs button{
+  background:#fff;border:1px solid var(--border);color:var(--navy-2);border-radius:999px;padding:9px 18px;
+  box-shadow:0 1px 2px rgba(10,36,99,.05);
+}
+.maintabs button:hover{border-color:var(--navy-2);}
+.maintabs button.active{background:var(--navy-2);color:#fff;border-color:var(--navy-2);box-shadow:0 4px 12px rgba(29,78,216,.3);}
+.tabs{background:#fff;border:1px solid var(--border);border-radius:12px;}
+.tabs button{color:var(--text-muted);border-radius:9px;}
+.tabs button.active{background:var(--navy-2);color:#fff;}
+
+/* ---------- Cartões, métricas e listas ---------- */
+.metric,.frente-card,.card,.acao-row,.ev-card,.auth-box,.modal,.admin-box,.panel,
+#view-agenda .agenda-list > *{
+  background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:var(--sombra);
+}
+.metric{border-top:3px solid var(--gold);}
+.metric .value{color:var(--navy);}
+.metric.warn{border-top-color:var(--red);}
+.metric.warn .value{color:var(--red);}
+.ev-card:hover,.acao-row:hover{border-color:var(--navy-2);}
+.fc-bar{background:var(--panel-alt);}
+.fc-fill{background:linear-gradient(90deg,var(--navy-2),#4F8CFF);}
+.modal{box-shadow:var(--sombra-forte);}
+.modal-overlay{background:rgba(10,36,99,.45) !important;backdrop-filter:blur(3px);}
+
+/* ---------- Campos ---------- */
+input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],input[type=time],
+input[type=url],input[type=search],select,textarea{
+  background:#fff;color:var(--text);border:1px solid var(--border);border-radius:10px;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy-2);box-shadow:0 0 0 3px rgba(29,78,216,.18);}
+.field label{color:var(--text-muted);font-weight:600;}
+
+/* ---------- Tabelas (painel de acompanhamento) ---------- */
+.pa-table{border-radius:12px;overflow:hidden;box-shadow:var(--sombra);border:1px solid var(--border);}
+.pa-table th{background:var(--navy) !important;}
+.pa-table tr.pa-total td{background:var(--navy) !important;}
+.pa-table tr:nth-child(even) td{background:#F7FAFF;}
+.pa-table tr.pa-total:nth-child(even) td{background:var(--navy);}
+
+/* ---------- Mídias ---------- */
+.thumb{background:var(--panel-alt);}
+.badge{background:rgba(255,255,255,.94) !important;color:var(--navy) !important;border:1px solid var(--border);font-weight:600;}
+.badge.baixado,.badge.st-postada{color:var(--navy-2) !important;border-color:var(--navy-2);}
+.card-cap{background:var(--panel-alt);}
+.aviso.hoje{background:rgba(255,198,43,.2);border:1px solid var(--gold);}
+.aviso.atrasada{background:rgba(229,72,77,.1);border:1px solid var(--red);}
+
+/* ---------- Tela de entrada ---------- */
+#auth-screen{background:linear-gradient(160deg,var(--navy) 0%,var(--navy-2) 60%,#4F8CFF 100%);}
+#auth-screen .auth-box{box-shadow:var(--sombra-forte);}
+#auth-screen .auth-box h1{color:var(--navy);}
+.link-btn{color:var(--navy-2);}
+
+/* ---------- Carregando / avisos ---------- */
+#loading-screen{color:var(--text-muted);}
+#config-warning{background:rgba(229,72,77,.08);}
+.sync-bubble{background:#fff;color:var(--text);border:1px solid var(--border);box-shadow:var(--sombra-forte);}
+
+/* ---------- Painel admin (usa variáveis próprias) ---------- */
+header{background:linear-gradient(135deg,var(--navy),var(--navy-2)) !important;}
+
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:#C3D2F0;border-radius:8px;border:2px solid var(--bg);}
+@media(max-width:700px){.maintabs{padding:12px 16px 2px 16px;}}
