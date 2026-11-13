@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Conversas com parceiros</title>
+<meta name="theme-color" content="#1c3d8f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Conversas">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🤝%3C/text%3E%3C/svg%3E">
+<style>
+:root{--bg:#f5f6f9;--card:#fff;--ink:#17203a;--mute:#5b6580;--line:#dde1ea;--main:#1c3d8f;--on:#fff;--gold:#f2b705;--ok:#1f7a4d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10141f;--card:#192032;--ink:#e8ecf6;--mute:#9aa5c0;--line:#2a3350;--main:#7fa2ff;--on:#10141f;--gold:#f2b705;--ok:#58c98f}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+main{max-width:720px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0 2px}
+.sub{color:var(--mute);margin:0 0 14px;font-size:14px}
+nav{display:flex;gap:6px;margin-bottom:14px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:6px 0;z-index:5}
+nav button{flex:1;padding:10px 2px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+nav button[aria-selected="true"]{background:var(--main);color:var(--on);border-color:var(--main)}
+section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+h2{font-size:17px;margin:0 0 8px}
+h3{font-size:15px;margin:12px 0 4px}
+label{display:block;font-size:13px;color:var(--mute);margin:10px 0 3px}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+textarea{min-height:110px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:480px){.row{grid-template-columns:1fr}}
+.btn{padding:10px 14px;border:0;border-radius:10px;background:var(--main);color:var(--on);font:inherit;font-weight:600;cursor:pointer;margin:10px 8px 0 0;text-decoration:none;display:inline-block}
+.btn.alt{background:transparent;color:var(--main);border:1px solid var(--main)}
+.btn.del{background:transparent;color:#b3261e;border:1px solid #b3261e}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#17203a;font-weight:600}
+ul{margin:4px 0;padding-left:20px}
+li{margin:4px 0}
+.say{border-left:3px solid var(--gold);padding:6px 10px;margin:6px 0;background:var(--bg);border-radius:0 8px 8px 0;cursor:pointer}
+.item{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item b{display:block}.item span{color:var(--mute);font-size:13px}
+.note{font-size:13px;color:var(--mute)}
+.out{white-space:pre-wrap;background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:10px;margin-top:10px;font-size:14px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<main>
+<h1>Conversas com parceiros</h1>
+<p class="sub">Roteiro para conduzir, espaço para anotar e feedback pronto para enviar. Toque em qualquer fala para copiar.</p>
+<nav role="tablist">
+<button role="tab" data-t="roteiro" aria-selected="true">Roteiro</button>
+<button role="tab" data-t="reuniao" aria-selected="false">Reunião</button>
+<button role="tab" data-t="ideias" aria-selected="false">Ideias</button>
+<button role="tab" data-t="ligacao" aria-selected="false">Ligação</button>
+<button role="tab" data-t="msgs" aria-selected="false">Mensagens</button>
+</nav>
+
+<section id="roteiro" class="on">
+<div class="card">
+<label for="pub">Com quem vou conversar?</label>
+<select id="pub"><option value="empresa">Empresa (RH interno)</option><option value="rh">Empresa de RH / recrutamento</option><option value="grupo">Grupo de ofertas (divulgação)</option><option value="escola">Escola (terceirão)</option><option value="igreja">Igreja</option></select>
+</div>
+<div id="rot"></div>
+</section>
+
+<section id="reuniao">
+<div class="card">
+<h2>Anotações da conversa</h2>
+<div class="row">
+<div><label for="polo">Polo</label><select id="polo"><option>São José do Rio Preto</option><option>Presidente Prudente</option></select></div>
+<div><label for="tipo">Público</label><select id="tipo"><option>Empresa / RH</option><option>Empresa de RH / recrutamento</option><option>Grupo de ofertas</option><option>Escola</option><option>Igreja</option><option>Outro</option></select></div>
+</div>
+<div class="row">
+<div><label for="org">Organização</label><input id="org" placeholder="Nome da empresa, escola ou igreja"></div>
+<div><label for="contato">Contato</label><input id="contato" placeholder="Nome e cargo"></div>
+</div>
+<label for="dataReu">Data da conversa</label><input id="dataReu" type="date">
+<label>O que eles precisam hoje</label>
+<div class="chips" id="needs"></div>
+<label for="notas">Anotações enquanto a pessoa fala</label>
+<textarea id="notas" placeholder="Desafios, datas, número de pessoas, objeções…"></textarea>
+<label for="prox">Próximo passo combinado</label><input id="prox" placeholder="Ex.: enviar proposta de palestra">
+<div class="row">
+<div><label for="proxData">Data da próxima conversa</label><input id="proxData" type="date"></div>
+<div><label for="proxHora">Horário</label><input id="proxHora" type="time" value="09:00"></div>
+</div>
+<button class="btn" id="salvar">Salvar conversa</button>
+<button class="btn alt" id="limpar">Nova conversa</button>
+<a class="btn alt" id="agenda" href="#" target="_blank" rel="noopener">Abrir no Google Agenda</a>
+</div>
+
+<div class="card">
+<h2>Feedback e mensagens</h2>
+<p class="note">Gerados a partir do que você anotou acima.</p>
+<button class="btn" id="fbLid">Resumo para a liderança</button>
+<button class="btn alt" id="fbCli">Agradecimento ao contato</button>
+<div class="out" id="out" hidden></div>
+<button class="btn alt" id="copiar" hidden>Copiar texto</button>
+</div>
+
+<div class="card">
+<h2>Conversas salvas</h2>
+<div id="lista"><p class="note">Nenhuma conversa salva ainda. Salve a primeira para vê-la aqui.</p></div>
+</div>
+</section>
+
+<section id="ideias">
+<div class="card">
+<label for="nec">Qual é a necessidade que ouvi?</label>
+<select id="nec"></select>
+<p class="note">Ideias para conversar. Palestras, treinamentos, descontos e gratuidades só podem ser oferecidos depois de confirmados pela sede.</p>
+</div>
+<div id="ide"></div>
+</section>
+<section id="ligacao">
+<div class="card"><h2>Objetivo da ligação</h2><p>Conseguir 15 a 20 minutos de conversa. Não apresente curso nem programa por telefone.</p></div>
+<div class="card"><h2>1. Recepção ou secretaria</h2>
+<div class="say">Bom dia! Aqui é a Miriam Palhares, do polo EAD Adventista, ligada ao UNASP. Poderia me ajudar? Gostaria de falar com a pessoa responsável pelo RH (ou pela direção/coordenação pedagógica) sobre uma conversa rápida de desenvolvimento das equipes. Quem seria a pessoa certa e qual o melhor horário para falar com ela?</div>
+<p class="note">Anote nome, cargo e melhor horário. Se a pessoa não estiver, peça o WhatsApp ou e-mail e avise que enviará mensagem.</p></div>
+<div class="card"><h2>2. Com a pessoa certa (30 a 40 segundos)</h2>
+<div class="say">Olá, [nome]! Aqui é a Miriam Palhares, gestora do polo EAD Adventista em [cidade]. Sei que seu tempo é curto, então vou ser rápida. Estou conversando com algumas [empresas/escolas] da região para entender como têm trabalhado o desenvolvimento das pessoas e ver onde podemos ajudar. Não é uma ligação de venda. Você teria 15 minutos esta semana para eu fazer algumas perguntas?</div>
+<h3>Se disser sim</h3>
+<div class="say">Ótimo! Prefere [dia] às [hora] ou [dia] às [hora]? Posso ir até aí ou prefere online? Vou te enviar a confirmação pelo WhatsApp.</div>
+<p class="note">Ofereça sempre duas opções de horário.</p></div>
+<div class="card"><h2>3. Se aparecerem objeções</h2>
+<h3>“Não tenho tempo agora”</h3><div class="say">Claro! Quando seria melhor eu ligar? Posso te mandar uma mensagem e você me responde com um horário.</div>
+<h3>“Manda por e-mail ou WhatsApp”</h3><div class="say">Mando sim! Para enviar algo útil e não genérico, posso te fazer uma pergunta rápida? Qual é hoje o maior desafio com a equipe (ou com os alunos)?</div>
+<h3>“Já temos parceiro” ou “não precisamos”</h3><div class="say">Entendo, fico feliz que já estejam bem cuidados. Posso deixar meu contato, caso algo mude ou apareça uma necessidade nova?</div>
+<h3>“Quanto custa?”</h3><div class="say">Ainda não vim com proposta. Primeiro quero entender a necessidade de vocês. As condições eu confirmo com a instituição e te informo na conversa.</div>
+<h3>“O que vocês querem de mim?”</h3><div class="say">Só conhecer a realidade de vocês e ver se faz sentido ajudar. Se não fizer, tudo bem.</div>
+<p class="note">Se a resposta for não, agradeça e encerre com tranquilidade. Insistir queima o contato.</p></div>
+<div class="card"><h2>4. Caixa postal ou sem resposta</h2>
+<div class="say">Olá, [nome], aqui é a Miriam Palhares, do polo EAD Adventista de [cidade]. Estou conversando com algumas [empresas/escolas] da região sobre o desenvolvimento das pessoas e gostaria de uma conversa rápida de 15 minutos. Vou te enviar uma mensagem no WhatsApp com mais detalhes. Obrigada!</div></div>
+<div class="card"><h2>5. Mensagem logo depois da ligação</h2>
+<h3>Se agendou</h3><div class="say">Olá, [nome]! Foi um prazer falar com você. Confirmando nossa conversa: [dia], às [hora], [local ou link]. Se precisar remarcar, é só me avisar. Até lá!</div>
+<h3>Se não conseguiu falar</h3><div class="say">Olá, [nome]! Tentei contato por telefone hoje. Sou a Miriam, do polo EAD Adventista em [cidade]. Gostaria de uma conversa rápida de 15 minutos para entender como vocês têm trabalhado o desenvolvimento das pessoas e ver onde podemos ajudar. Qual dia e horário ficam melhores para você?</div></div>
+<div class="card"><h2>Dicas</h2><ul><li>Ligue em blocos: 30 minutos, de 5 a 8 ligações seguidas.</li><li>Melhores horários: terça a quinta, das 9h30 às 11h30 ou das 14h30 às 16h.</li><li>Registre cada ligação na aba Reunião, mesmo as que não deram certo.</li><li>Sem ações comerciais aos sábados.</li></ul></div>
+</section>
+<section id="msgs">
+<p class="note">Toque na mensagem para copiar. Troque os colchetes antes de enviar.</p>
+<div class="card"><h2>Primeiro contato</h2>
+<h3>Empresa (RH)</h3><div class="say">Olá, [nome]! Sou a Miriam Palhares, gestora do polo EAD Adventista (UNASP) em [cidade]. Estou conversando com algumas empresas da região para entender como têm trabalhado o desenvolvimento das equipes e ver onde podemos ajudar. Você teria 15 minutos esta semana para uma conversa rápida?</div>
+<h3>Escola (terceirão)</h3><div class="say">Olá, [nome]! Tudo bem? Sou a Miriam Palhares, gestora do polo EAD Adventista (UNASP) em [cidade]. Gostaria de conversar rapidamente com a direção sobre como a escola orienta os alunos do 3º ano depois do ENEM. Posso apresentar, em cerca de 20 minutos, uma ação de orientação, sem compromisso. Qual seria o melhor dia e horário?</div>
+<h3>Igreja (cantata)</h3><div class="say">Olá, [nome]! Tudo bem? Sou a Miriam Palhares, gestora do polo EAD Adventista (UNASP) em [cidade]. Sei que a igreja está organizando a cantata de Natal e gostaria de saber a data e o local. Se vocês concordarem, posso deixar na entrada um material informativo sobre nossos cursos, de forma discreta e respeitando a programação. Posso falar com o responsável?</div></div>
+<div class="card"><h2>Parceria com empresa de RH</h2>
+<h3>Primeira resposta (ex.: Lime)</h3><div class="say">Olá, [nome]! Muito obrigada pelo contato, adorei conhecer o trabalho de vocês. Sou a Miriam Palhares, gestora dos polos EAD Adventista (UNASP) em São José do Rio Preto e Presidente Prudente. Vejo bastante sinergia entre o que vocês fazem na estruturação do RH e o nosso trabalho de qualificação e desenvolvimento dos colaboradores das empresas. Gostaria muito de conversar sobre uma parceria. Você teria 20 minutos esta semana para uma chamada ou café?</div>
+<h3>Frase para a parceira repassar aos clientes</h3><div class="say">Os clientes podem conhecer o projeto Educação nas Empresas, da EAD Adventista (UNASP): descontos em graduação e pós EAD para colaboradores, proporcionais a cada módulo; palestras e treinamentos de qualificação sem custo para a empresa; e, ao fechar contrato com o projeto, um voucher digital intransferível de pós ou curso livre, com validade de 1 mês para ativação com a gestora do polo.</div></div>
+<div class="card"><h2>Grupos de ofertas</h2>
+<h3>Primeira mensagem ao administrador</h3><div class="say">Olá, [nome]! Tudo bem? Sou a Miriam Palhares, gestora do polo EAD Adventista (UNASP) em [cidade]. Gosto do seu grupo e vejo bastante gente da região nele. Queria entender como funciona a divulgação e conversar sobre uma parceria em que os membros conheçam oportunidades de estudo. Você teria 10 minutos para conversar por aqui ou por ligação?</div>
+<h3>Texto do post (use a arte oficial e as condições vigentes)</h3><div class="say">Quer estudar com flexibilidade e crescer na carreira? A EAD Adventista (UNASP) tem graduação e pós-graduação a distância, com [condição oficial da campanha]. Fale com o polo de [cidade] pelo WhatsApp: [link rastreável] e tire suas dúvidas.</div></div>
+</section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+var ROT={
+empresa:{
+abertura:"Obrigada por me receber, [nome]. Não vim vender nada hoje. Queria entender como é a realidade da empresa com o desenvolvimento das pessoas e ver se há algo em que possamos ajudar. Posso fazer algumas perguntas?",
+perguntas:["Como vocês trabalham hoje o desenvolvimento e a motivação da equipe?","Qual é o maior desafio com os colaboradores neste momento? (rotatividade, clima, atendimento, vendas, qualificação)","Vocês já têm algum benefício ligado a estudo ou treinamento?","Quantos colaboradores têm e em quais áreas? Alguém quer crescer na carreira ou voltar a estudar?","Há alguma data ou ação importante chegando? (confraternização, SIPAT, campanha de vendas)"],
+ponte:["Equipe desmotivada: palestra motivacional","Vendas ou atendimento: treinamento prático","Valorização de fim de ano: ação de valorização com momento de educação","Quem quer estudar: apresentação das graduações e pós, com as condições autorizadas","Sem orçamento: explicar que a ação, se aprovada pela sede, não gera custo à empresa"]},
+rh:{
+abertura:"Obrigada por me receber, [nome]. Conheço o trabalho de vocês com RH e recrutamento e queria entender como atendem as empresas e se há espaço para uma parceria em que os clientes de vocês ganhem benefícios de qualificação. Posso fazer algumas perguntas?",
+perguntas:["Quantas empresas vocês atendem e em quais cidades? Há clientes em Rio Preto ou Prudente?","Qual é o porte e o perfil dessas empresas?","Os clientes pedem qualificação ou treinamento dos colaboradores? Como vocês atendem isso hoje?","O que ajuda vocês a fechar contrato com um cliente novo? Um diferencial a mais ajudaria?","Como vocês imaginam uma parceria: indicação, ação conjunta, conteúdo?","Qual seria um primeiro passo simples para testarmos com uma empresa?"],
+ponte:["Descontos em graduação e pós EAD para os colaboradores, proporcionais a cada módulo (o percentual varia, não é fixo)","Palestras e treinamentos de qualificação para os colaboradores, sem custo para a empresa","Para cada empresa que fechar contrato com o projeto Educação nas Empresas: 1 pós ou curso livre, em voucher digital intransferível, com validade de 1 mês para ativar com a gestora do polo, Miriam Palhares","Piloto: uma empresa cliente em comum para testar antes de formalizar","Combinar um ponto de contato e uma conversa de 15 minutos a cada 15 dias"]},
+grupo:{
+abertura:"Olá, [nome]! Sou a Miriam, do polo EAD Adventista (UNASP) em [cidade]. Gostei do seu grupo e queria entender como funciona a divulgação e se há espaço para uma parceria. Posso fazer algumas perguntas?",
+perguntas:["Quantos membros o grupo tem e de quais cidades são? Qual o perfil (idade, interesses)?","Quais são as regras de publicação e os formatos aceitos (card, vídeo, texto)?","Vocês aceitam divulgação por permuta ou só paga? Qual a tabela de valores?","Quais resultados outros anunciantes tiveram? Quais horários e dias funcionam melhor?","Com que frequência o grupo publica? Há limite de posts por anunciante?"],
+ponte:["Teste de 1 a 2 semanas com card oficial e link de WhatsApp rastreável","Permuta: benefício aprovado para os membros ou para o administrador, se autorizado","Divulgação paga: pedir a tabela para o pedido de verba cooperada","Combinar dia, horário e formato do post, usando apenas material oficial"]},
+escola:{
+abertura:"Obrigada por me receber, [nome]. Quero entender como a escola apoia os alunos do 3º ano depois do ENEM e ver se podemos contribuir de alguma forma. Posso fazer algumas perguntas?",
+perguntas:["Como a escola orienta os alunos do 3º ano sobre o que fazer depois do ENEM?","Qual é a maior dúvida deles nessa fase? E a dos pais?","Já fizeram palestra de carreira ou orientação profissional? Como foi?","Há algum evento até o fim do ano? (formatura, feira de profissões)","Há professores ou funcionários que queiram graduação ou pós?"],
+ponte:["Dúvida sobre o futuro: palestra de orientação “e agora, depois do ENEM?”","Formatura: verificar com a sede a entrega especial e os vouchers","Professores: apresentar licenciaturas e pós, com condições autorizadas"]},
+igreja:{
+abertura:"Obrigada pelo tempo, [nome]. Gostaria de entender como a igreja acompanha jovens e adultos que querem estudar ou crescer profissionalmente. Posso fazer algumas perguntas?",
+perguntas:["Como a igreja acompanha quem quer estudar ou crescer profissionalmente?","Há jovens concluindo o ensino médio ou pessoas buscando uma graduação?","Quais eventos estão previstos até o fim do ano? (cantata, culto especial)","Em que formato faria sentido uma informação sobre estudo, sem atrapalhar a programação?"],
+ponte:["Cantata ou evento: material informativo na entrada, se o responsável autorizar","Jovens: conversa ou palestra curta de orientação","Comunidade: divulgação no canal da igreja, com texto aprovado"]}
+};
+var COMUM_DEV="Se entendi bem, o principal desafio de vocês hoje é [X] e vocês gostariam de [Y]. É isso?";
+var COMUM_FECH="Posso preparar uma proposta simples para [ação] e te enviar até [data]? Podemos conversar de novo na [dia] para ver se faz sentido?";
+var NEEDS=["Equipe desmotivada","Vendas ou atendimento","Valorização de fim de ano","Quer estudar","Orientação pós-ENEM","Sem orçamento"];
+var IDEIAS={
+"Equipe desmotivada":["Palestra motivacional: atitude, propósito e crescimento profissional","Stand-up empresarial: humor e integração para a equipe","Momento curto de 20 minutos no fim da reunião semanal"],
+"Vendas ou atendimento":["Treinamento prático de atendimento ao cliente","Oficina de vendas consultivas aplicada à realidade da empresa","Treinamento de comunicação e cobrança"],
+"Valorização de fim de ano":["Ação de valorização dos colaboradores na confraternização","Palestra de encerramento do ano: balanço e metas","Momento Educação: apresentação das oportunidades de graduação e pós"],
+"Quer estudar":["Apresentação das graduações e pós-graduações EAD","Plantão de dúvidas no WhatsApp para os colaboradores","Conversa individual sobre carreira, por interesse voluntário"],
+"Orientação pós-ENEM":["Palestra “e agora, depois do ENEM?”","Roda de conversa com ex-aluno que estuda a distância","Simulado de escolha de curso e carreira"],
+"Sem orçamento":["Reforçar que a ação, se aprovada pela sede, não gera custo à empresa","Começar com uma conversa curta de 20 minutos como piloto","Divulgação digital voluntária em vez de evento presencial"]};
+
+function $(i){return document.getElementById(i)}
+function toast(m){var t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},1800)}
+function safe(fn,d){try{return fn()}catch(e){return d}}
+function load(){return safe(function(){return JSON.parse(localStorage.getItem("conv")||"[]")},[])}
+function store(a){safe(function(){localStorage.setItem("conv",JSON.stringify(a))})}
+
+document.querySelectorAll("nav button").forEach(function(b){b.onclick=function(){
+document.querySelectorAll("nav button").forEach(function(x){x.setAttribute("aria-selected",x===b?"true":"false")});
+document.querySelectorAll("section").forEach(function(s){s.classList.toggle("on",s.id===b.dataset.t)});window.scrollTo(0,0)}});
+
+function say(t){return '<div class="say">'+t+'</div>'}
+function renderRot(){
+var r=ROT[$("pub").value];
+var h='<div class="card"><h2>1. Abertura</h2>'+say(r.abertura)+'</div>';
+h+='<div class="card"><h2>2. Descoberta</h2><p class="note">Uma pergunta de cada vez. Escute e anote na aba Reunião.</p><ul>'+r.perguntas.map(function(p){return "<li>"+p+"</li>"}).join("")+'</ul></div>';
+h+='<div class="card"><h2>3. Devolutiva</h2>'+say(COMUM_DEV)+'</div>';
+h+='<div class="card"><h2>4. Ponte para ajudar</h2><p class="note">Escolha uma coisa só, a que responde ao que ouviu. Tudo sujeito à aprovação da sede.</p><ul>'+r.ponte.map(function(p){return "<li>"+p+"</li>"}).join("")+'</ul></div>';
+h+='<div class="card"><h2>5. Fechamento</h2>'+say(COMUM_FECH)+'</div>';
+$("rot").innerHTML=h}
+$("pub").onchange=renderRot;renderRot();
+
+var sel={};
+function renderNeeds(){$("needs").innerHTML="";NEEDS.forEach(function(n){var b=document.createElement("button");b.type="button";b.className="chip";b.textContent=n;b.setAttribute("aria-pressed",sel[n]?"true":"false");b.onclick=function(){sel[n]=!sel[n];renderNeeds()};$("needs").appendChild(b)})}
+renderNeeds();
+
+var cur=null;
+function fmt(d){if(!d)return "[data]";var p=d.split("-");return p[2]+"/"+p[1]+"/"+p[0]}
+function rec(){return{id:cur||String(Date.now()),polo:$("polo").value,tipo:$("tipo").value,org:$("org").value.trim(),contato:$("contato").value.trim(),data:$("dataReu").value,needs:NEEDS.filter(function(n){return sel[n]}),notas:$("notas").value.trim(),prox:$("prox").value.trim(),proxData:$("proxData").value,proxHora:$("proxHora").value}}
+function fill(r){cur=r.id;$("polo").value=r.polo;$("tipo").value=r.tipo;$("org").value=r.org;$("contato").value=r.contato;$("dataReu").value=r.data;sel={};r.needs.forEach(function(n){sel[n]=true});renderNeeds();$("notas").value=r.notas;$("prox").value=r.prox;$("proxData").value=r.proxData;$("proxHora").value=r.proxHora||"09:00";updAgenda()}
+function renderLista(){
+var a=load();if(!a.length){$("lista").innerHTML='<p class="note">Nenhuma conversa salva ainda. Salve a primeira para vê-la aqui.</p>';return}
+$("lista").innerHTML="";
+a.slice().reverse().forEach(function(r){
+var d=document.createElement("div");d.className="item";
+var t=document.createElement("div");
+var b=document.createElement("b");b.textContent=r.org||"Sem nome";
+var s=document.createElement("span");s.textContent=r.tipo+" · "+r.polo+" · "+fmt(r.data);
+t.appendChild(b);t.appendChild(s);
+var o=document.createElement("button");o.className="btn alt";o.style.margin="0";o.textContent="Abrir";o.onclick=function(){fill(r);window.scrollTo(0,0)};
+var x=document.createElement("button");x.className="btn del";x.style.margin="0";x.textContent="Excluir";x.onclick=function(){if(confirm("Excluir esta conversa?")){store(load().filter(function(z){return z.id!==r.id}));if(cur===r.id)cur=null;renderLista()}};
+var w=document.createElement("div");w.appendChild(o);w.appendChild(document.createTextNode(" "));w.appendChild(x);
+d.appendChild(t);d.appendChild(w);$("lista").appendChild(d)})}
+renderLista();
+
+$("salvar").onclick=function(){var r=rec();if(!r.org){toast("Informe o nome da organização");$("org").focus();return}
+var a=load(),i=a.findIndex(function(z){return z.id===r.id});if(i>=0)a[i]=r;else a.push(r);store(a);cur=r.id;renderLista();toast("Conversa salva")};
+$("limpar").onclick=function(){cur=null;sel={};renderNeeds();["org","contato","dataReu","notas","prox","proxData"].forEach(function(i){$(i).value=""});$("out").hidden=true;$("copiar").hidden=true;updAgenda()};
+
+function show(t){$("out").textContent=t;$("out").hidden=false;$("copiar").hidden=false}
+$("fbLid").onclick=function(){var r=rec();
+show("Resumo da conversa\n\nOrganização: "+(r.org||"[nome]")+" ("+r.tipo+")\nContato: "+(r.contato||"[contato]")+"\nPolo: "+r.polo+"\nData: "+fmt(r.data)+"\n\nNecessidades identificadas: "+(r.needs.length?r.needs.join("; "):"[a definir]")+"\n\nObservações: "+(r.notas||"[sem anotações]")+"\n\nPróximo passo: "+(r.prox||"[a definir]")+" até "+fmt(r.proxData)+".\n\nAs ações propostas dependem de aprovação da sede.")};
+$("fbCli").onclick=function(){var r=rec();
+show("Olá, "+(r.contato||"[nome]")+"! Obrigada pela conversa de hoje"+(r.org?" e pelo tempo da equipe da "+r.org:"")+". Foi muito útil entender "+(r.needs.length?"os desafios de vocês ("+r.needs.join(", ").toLowerCase()+")":"a realidade de vocês")+".\n\n"+(r.prox?"Como combinamos: "+r.prox+". ":"")+"Retorno até "+fmt(r.proxData)+". Qualquer dúvida, estou à disposição.\n\nMiriam Palhares\nEAD Adventista (UNASP)")};
+$("copiar").onclick=function(){var t=$("out").textContent;
+function fb(){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();safe(function(){document.execCommand("copy")});document.body.removeChild(a);toast("Texto copiado")}
+if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast("Texto copiado")},fb)}else fb()};
+
+function updAgenda(){var r=rec(),a=$("agenda");
+if(!r.proxData){a.removeAttribute("href");return}
+var d=r.proxData.replace(/-/g,""),h=(r.proxHora||"09:00").replace(":","")+"00";
+var h2=String(Math.min(23,parseInt((r.proxHora||"09:00").split(":")[0],10)+1)).padStart(2,"0")+(r.proxHora||"09:00").split(":")[1]+"00";
+a.href="https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent("Reunião com "+(r.org||"parceiro"))+"&dates="+d+"T"+h+"/"+d+"T"+h2+"&details="+encodeURIComponent(r.prox||"")}
+["proxData","proxHora","org","prox"].forEach(function(i){$(i).addEventListener("input",updAgenda)});
+$("agenda").addEventListener("click",function(e){if(!$("agenda").getAttribute("href")){e.preventDefault();toast("Escolha a data da próxima conversa")}});
+
+NEEDS.forEach(function(n){var o=document.createElement("option");o.textContent=n;$("nec").appendChild(o)});
+function renderIde(){var l=IDEIAS[$("nec").value]||[];$("ide").innerHTML='<div class="card"><ul>'+l.map(function(i){return "<li>"+i+"</li>"}).join("")+'</ul></div>'}
+$("nec").onchange=renderIde;renderIde();
+function cp(t){function fb(){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();safe(function(){document.execCommand("copy")});document.body.removeChild(a);toast("Texto copiado")}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast("Texto copiado")},fb)}else fb()}
+document.addEventListener("click",function(e){var s=e.target.closest&&e.target.closest(".say");if(s)cp(s.textContent.trim())});
+</script>
+</body>
+</html>
